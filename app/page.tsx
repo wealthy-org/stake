@@ -365,17 +365,16 @@ export default function LandingPage() {
       <header className="top">
         <div className="top-in">
           <button
-            className="logo"
+            className="brand"
             onClick={() => navigateTo("home")}
             aria-label="Stake home"
-            style={{ border: 0, background: "none", cursor: "pointer", padding: 0 }}
+            style={{ border: 0, background: "none", cursor: "pointer", padding: 0, textAlign: "left" }}
           >
-            <img
-              src="/logo.jpeg"
-              alt="Stake"
-              className="logo-img"
-            />
-            Stake
+            <img src="/logo.jpeg" alt="Stake" className="brand-mark" />
+            <span className="brand-text">
+              <span className="brand-name">Stake</span>
+              <span className="brand-sub">Prediction Protocol · Robinhood L1</span>
+            </span>
           </button>
 
           <nav className={`nav ${menuOpen ? "open" : ""}`} id="navigation" aria-label="Main navigation">

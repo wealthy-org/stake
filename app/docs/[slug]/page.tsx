@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
-export default function DocSlugPage({ params }: { params: { slug: string } }) {
-  redirect(`/#docs/${params.slug}`);
+export default async function DocSlugPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  redirect(`/#docs/${slug}`);
 }
