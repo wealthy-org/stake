@@ -91,54 +91,62 @@ export default function MarketsPage() {
             )}
           </p>
         </div>
-        {/* Search */}
-        <div className="mkt-search-wrap">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-          </svg>
-          <input
-            id="mkt-search"
-            className="mkt-search"
-            type="search"
-            placeholder="Search by question or asset…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            aria-label="Search markets"
-          />
-          {search && (
-            <button className="mkt-search-clear" onClick={() => setSearch("")} aria-label="Clear search">×</button>
-          )}
-        </div>
       </div>
 
-      {/* ── Filter bar ── */}
-      <div className="mkt-filters">
-        <div className="flt" role="tablist" aria-label="Market status">
-          {TABS.map(([k, label]) => (
-            <button
-              key={k}
-              role="tab"
-              aria-selected={tab === k}
-              className={tab === k ? "on" : ""}
-              onClick={() => setTab(k)}
-            >
-              {label}
-              {markets !== null && (
-                <span className="tab-count">{counts[k]}</span>
-              )}
-            </button>
-          ))}
+      {/* ── Modern Control & Filter Panel ── */}
+      <div className="mkt-control-bar">
+        {/* Row 1: Status segmented control + Search */}
+        <div className="mkt-top-row">
+          <div className="mkt-status-tabs" role="tablist" aria-label="Market status">
+            {TABS.map(([k, label]) => (
+              <button
+                key={k}
+                role="tab"
+                aria-selected={tab === k}
+                className={`status-tab ${tab === k ? "active" : ""}`}
+                onClick={() => setTab(k)}
+              >
+                <span>{label}</span>
+                {markets !== null && (
+                  <span className="tab-pill">{counts[k]}</span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          <div className="mkt-search-wrap">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+            </svg>
+            <input
+              id="mkt-search"
+              className="mkt-search"
+              type="search"
+              placeholder="Search markets or asset…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search markets"
+            />
+            {search && (
+              <button className="mkt-search-clear" onClick={() => setSearch("")} aria-label="Clear search">×</button>
+            )}
+          </div>
         </div>
-        <div className="flt">
-          {ASSETS.map((k) => (
-            <button
-              key={k}
-              className={asset === k ? "on" : ""}
-              onClick={() => setAsset(k)}
-            >
-              {k === "all" ? "All assets" : k}
-            </button>
-          ))}
+
+        {/* Row 2: Asset filter pills */}
+        <div className="mkt-asset-row">
+          <span className="asset-label">Asset:</span>
+          <div className="mkt-asset-chips">
+            {ASSETS.map((k) => (
+              <button
+                key={k}
+                className={`asset-chip ${asset === k ? "active" : ""}`}
+                onClick={() => setAsset(k)}
+              >
+                {k === "all" ? "All assets" : k}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -155,7 +163,13 @@ export default function MarketsPage() {
       {markets === null ? (
         <SkelBoard rows={6} />
       ) : pageItems.length > 0 ? (
-        <div className="board">
+        <div className="tote">
+          <div className="tote-head" aria-hidden="true">
+            <span>Pool</span>
+            <span>Question</span>
+            <span>Pool split</span>
+            <span>Take a side · pays per $1</span>
+          </div>
           {pageItems.map((m) => (
             <MarketRow_ key={m.id} market={m} />
           ))}

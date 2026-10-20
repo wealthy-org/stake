@@ -54,7 +54,7 @@ export default function StatsPage() {
           <b className="gd">
             <CountUp value={paperToNumber(stats.paperCreated)} duration={1400} />
           </b>
-          <small>PAPER created</small>
+          <small>STAKE created</small>
         </div>
         <div>
           <b>
@@ -107,7 +107,7 @@ export default function StatsPage() {
             {largest.map((m) => (
               <tr key={m.id}>
                 <td>
-                  <Link href={`/market/${m.id}`}>{m.question}</Link>
+                  <Link href={`/app/market/${m.id}`}>{m.question}</Link>
                 </td>
                 <td>{short(collateralToNumber(m.yes_pool) + collateralToNumber(m.no_pool))}</td>
                 <td>{m.bettor_count ?? 0}</td>

@@ -135,7 +135,7 @@ export default function NewMarketPage() {
         },
         adminKey
       );
-      router.push(`/market/${id}`);
+      router.push(`/app/market/${id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create market");
     } finally {

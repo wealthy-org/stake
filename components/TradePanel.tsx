@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useWallet, useToast } from "./providers";
 import { placeBet, faucet } from "@/lib/client/api";
 import { collateralToNumber, dollarsToBaseUnits, usd, num } from "@/lib/client/format";
@@ -13,18 +13,29 @@ export default function TradePanel({
   emissionRate,
   initialSide,
   onChanged,
+  onSideChange,
 }: {
   market: MarketRow;
   myPosition: PositionRow | null;
   emissionRate: number;
   initialSide: "yes" | "no";
   onChanged: () => void;
+  onSideChange?: (side: "yes" | "no") => void;
 }) {
   const { address, summary, refresh } = useWallet();
   const toast = useToast();
   const [side, setSide] = useState<"yes" | "no">(initialSide);
   const [amt, setAmt] = useState("100");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setSide(initialSide);
+  }, [initialSide]);
+
+  function pick(s: "yes" | "no") {
+    setSide(s);
+    onSideChange?.(s);
+  }
 
   const amount = Math.max(0, parseFloat(amt) || 0);
   const yesPool = collateralToNumber(market.yes_pool);
@@ -89,10 +100,10 @@ export default function TradePanel({
       <div className="fl">
         <span>Your pick</span>
         <span className="fill tickrow">
-          <button className={"tk" + (side === "yes" ? " on" : "")} onClick={() => setSide("yes")}>
+          <button className={"tk" + (side === "yes" ? " on" : "")} onClick={() => pick("yes")}>
             YES
           </button>
-          <button className={"tk" + (side === "no" ? " on" : "")} onClick={() => setSide("no")}>
+          <button className={"tk" + (side === "no" ? " on" : "")} onClick={() => pick("no")}>
             NO
           </button>
         </span>
@@ -139,7 +150,7 @@ export default function TradePanel({
           <b>{usd(other.loss)}</b>
         </div>
         <div className="ld">
-          <span>PAPER on that loss</span>
+          <span>STAKE on that loss</span>
           <i></i>
           <b>{num(other.paper)}</b>
         </div>
@@ -165,7 +176,7 @@ export default function TradePanel({
       )}
       <div className="perf"></div>
       <p className="stubnote">
-        Keep your stub. If you lose, your verified net loss becomes PAPER you can claim. You can lose your entire
+        Keep your stub. If you lose, your verified net loss becomes STAKE you can claim. You can lose your entire
         stake.
       </p>
     </>

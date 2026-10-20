@@ -39,7 +39,7 @@ export default function PortfolioPage() {
         </div>
         <div className="empty">
           <h3>Connect a wallet to see your slips</h3>
-          <p>Open bets, claimable winnings and PAPER certificates show up here.</p>
+          <p>Open bets, claimable winnings and STAKE certificates show up here.</p>
           <button className="btn big" onClick={connectInjected}>
             Connect wallet
           </button>{" "}
@@ -81,7 +81,7 @@ export default function PortfolioPage() {
           <b>{usd(balance, 0)}</b>
         </div>
         <div>
-          <small>PAPER balance</small>
+          <small>STAKE balance</small>
           <b style={{ color: "var(--gold-d)" }}>{paperBalance.toLocaleString("en-US")}</b>
         </div>
         <div>
@@ -94,7 +94,7 @@ export default function PortfolioPage() {
         <div className="empty">
           <h3>No slips yet</h3>
           <p>Place a bet on an open market to see it here.</p>
-          <Link className="btn big" href="/">
+          <Link className="btn big" href="/app">
             See the board
           </Link>
         </div>
@@ -105,7 +105,7 @@ export default function PortfolioPage() {
               <div className="slip-h">
                 <b>{pos.status === "resolved" || pos.status === "cancelled" ? "Settled slip" : "Open slip"}</b>
                 <span className="no">
-                  <Link href={`/market/${pos.market_id}`}>No. {pos.market_id.slice(-4)}</Link>
+                  <Link href={`/app/market/${pos.market_id}`}>No. {pos.market_id.slice(-4)}</Link>
                 </span>
               </div>
               <div className="slip-q" style={{ fontSize: 15 }}>

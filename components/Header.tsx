@@ -1,18 +1,70 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useWallet } from "./providers";
 
-const NAV = [
-  ["/", "Home"],
-  ["/markets", "Markets"],
-  ["/portfolio", "Slips"],
-  ["/paper", "PAPER"],
-  ["/activity", "Tape"],
-  ["/stats", "Ledger"],
-] as const;
+const NAV: { href: string; label: string; icon: ReactNode }[] = [
+  {
+    href: "/app",
+    label: "Home",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 11.2 12 3l9 8.2" />
+        <path d="M5.5 9.5V20h13V9.5" />
+      </svg>
+    ),
+  },
+  {
+    href: "/app/markets",
+    label: "Markets",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 20v-7M12 20V5M19 20v-10" />
+      </svg>
+    ),
+  },
+  {
+    href: "/app/portfolio",
+    label: "Slips",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M6 3h8l4 4v14H6z" />
+        <path d="M14 3v4h4" />
+      </svg>
+    ),
+  },
+  {
+    href: "/app/paper",
+    label: "STAKE",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2.7 20 7v10l-8 4.3L4 17V7z" />
+      </svg>
+    ),
+  },
+  {
+    href: "/app/activity",
+    label: "Tape",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+      </svg>
+    ),
+  },
+  {
+    href: "/app/stats",
+    label: "Ledger",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3.5" y="4.5" width="17" height="15" rx="1.5" />
+        <path d="M3.5 10h17M9.5 4.5v15" />
+      </svg>
+    ),
+  },
+];
 
 function WalletModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { connectInjected, connectTestAddress, connecting } = useWallet();
@@ -32,7 +84,7 @@ function WalletModal({ open, onClose }: { open: boolean; onClose: () => void }) 
           <b id="mt">Connect a wallet</b>
         </div>
         <p style={{ color: "var(--ink2)", fontSize: 14, marginBottom: 14 }}>
-          Paper Bet works with any EVM wallet on Robinhood Chain. No real funds move yet — this phase uses a
+          Stake works with any EVM wallet on Robinhood Chain. No real funds move yet — this phase uses a
           virtual testnet balance per address.
         </p>
         <button
@@ -106,46 +158,51 @@ export default function Header() {
 
   return (
     <>
-      <header className="wrap deskbar">
-        <Link className="brand" href="/" aria-label="Paper Bet home">
-          <i className="mark"></i>Paper Bet
+      <aside className="app-sidebar">
+        <Link className="brand" href="/app" aria-label="Stake home">
+          <Image src="/logo.jpeg" alt="Stake" width={40} height={40} className="brand-mark" priority />
+          <div className="brand-text">
+            <span className="brand-name">Stake</span>
+            <span className="brand-sub">Prediction Protocol · Robinhood L1</span>
+          </div>
         </Link>
-        {isWrongChain ? (
-          <button
-            className="pill net"
-            style={{ background: "#FEE2E2", color: "#991B1B", cursor: "pointer", border: "1px solid #F87171" }}
-            title="Click to switch to Robinhood Chain Testnet"
-            onClick={switchToRobinhood}
-          >
-            <i></i>Switch to 46630
-          </button>
-        ) : (
-          <span
-            className="pill net"
-            style={isOnChain ? { borderColor: "rgba(74, 222, 128, 0.4)", color: "#F3F6EE" } : undefined}
-            title="Robinhood Chain Testnet, chain ID 46630"
-          >
-            <i style={isOnChain ? { background: "#4ADE80", boxShadow: "0 0 8px #4ADE80" } : undefined}></i>
-            {isOnChain ? "On-Chain 46630" : "Testnet 46630"}
+
+        <nav className="sidebar-nav" aria-label="Main">
+          <span className="sidebar-label" aria-hidden="true">
+            Menu
           </span>
-        )}
-        <button
-          className={"btn conn " + (address ? "ghost" : "paper")}
-          style={address ? { color: "var(--desk-ink)" } : undefined}
-          onClick={() => (address ? disconnect() : setModalOpen(true))}
-        >
-          {short ?? "Connect wallet"}
-        </button>
-      </header>
-      <div className="wrap">
-        <nav className="folder" aria-label="Main">
-          {NAV.map(([href, label]) => (
-            <Link key={href} href={href} className={pathname === href ? "on" : ""}>
+          {NAV.map(({ href, label, icon }) => (
+            <Link key={href} href={href} className={pathname === href ? "on" : ""} aria-current={pathname === href ? "page" : undefined}>
+              {icon}
               {label}
             </Link>
           ))}
         </nav>
-      </div>
+
+        <div className="sidebar-foot">
+          {isWrongChain ? (
+            <button
+              className="pill net"
+              style={{ background: "#FFE2D9", color: "#CF3520", cursor: "pointer", border: "1px solid #CF3520" }}
+              title="Click to switch to Robinhood Chain Testnet"
+              onClick={switchToRobinhood}
+            >
+              <i style={{ background: "#CF3520" }}></i>Switch to 46630
+            </button>
+          ) : (
+            <span className="pill net" title="Robinhood Chain Testnet, chain ID 46630">
+              <i style={isOnChain ? { boxShadow: "0 0 8px var(--lime)" } : undefined}></i>
+              {isOnChain ? "On-Chain 46630" : "Testnet 46630"}
+            </span>
+          )}
+          <button
+            className={"btn conn block " + (address ? "ghost" : "gold")}
+            onClick={() => (address ? disconnect() : setModalOpen(true))}
+          >
+            {short ?? "Connect wallet"}
+          </button>
+        </div>
+      </aside>
       <WalletModal open={modalOpen} onClose={() => setModalOpen(false)} />
     </>
   );

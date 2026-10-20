@@ -40,6 +40,15 @@ export interface PositionRow {
   paper_minted: string | null;
 }
 
+export interface BetRow {
+  id: number;
+  market_id: string;
+  address: string;
+  side: "yes" | "no";
+  amount: string;
+  created_at: string;
+}
+
 export interface WalletPosition extends PositionRow {
   question: string;
   status: MarketStatus;

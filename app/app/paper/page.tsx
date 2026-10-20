@@ -9,7 +9,7 @@ import type { PaperSummary, MarketRow, ProtocolStats } from "@/lib/client/types"
 const MILESTONES = (totalWagered: number, cumulativeLoss: number, bettors: number, marketsCreated: number, transfersEnabled: boolean) => [
   ["First market", marketsCreated > 0 ? 1 : 0],
   ["First $10K wagered", totalWagered >= 10_000 ? 1 : 0],
-  ["First PAPER mint", cumulativeLoss > 0 ? 1 : 0],
+  ["First STAKE mint", cumulativeLoss > 0 ? 1 : 0],
   ["First $100K realized loss", cumulativeLoss >= 100_000 ? 1 : 0],
   ["First 1,000 bettors", bettors >= 1000 ? 1 : 0],
   ["Genesis complete", transfersEnabled ? 1 : 0],
@@ -41,7 +41,7 @@ function EmissionCurve({ cumulativeLoss, rate }: { cumulativeLoss: number; rate:
       <line x1={x(cumulativeLoss)} x2={x(cumulativeLoss)} y1={10} y2={H - pb} stroke="var(--ink)" strokeDasharray="3 4" />
       <circle cx={x(cumulativeLoss)} cy={y(Math.min(rate, R0))} r={5} fill="var(--gold-d)" />
       <text x={x(cumulativeLoss) + 10} y={y(Math.min(rate, R0)) - 10} style={{ fontWeight: 700, fill: "var(--ink)" }}>
-        Now: {rate} PAPER per $1
+        Now: {rate} STAKE per $1
       </text>
       <text x={pl} y={H - 6}>$0 realized losses</text>
       <text x={W - 10} y={H - 6} textAnchor="end">${(max / 1e6).toFixed(1)}M</text>
@@ -73,7 +73,7 @@ export default function PaperPage() {
         <div className="k">Certificate of ownership</div>
         <h1>{Math.round(supply).toLocaleString("en-US")}</h1>
         <p>
-          PAPER exists only because bettors lost real money. It enters supply through verified realized losses,
+          STAKE exists only because bettors lost real money. It enters supply through verified realized losses,
           with no team allocation, no premint and no admin who can mint.
         </p>
         <span className="serial">Supply today</span>
@@ -109,7 +109,7 @@ export default function PaperPage() {
           <EmissionCurve cumulativeLoss={cumulativeLoss} rate={paper.currentEmissionRatePerDollar} />
           <p className="note">
             Illustrative curve shape. Real tiers (testnet-only, not approved mainnet tokenomics — brief §16):
-            100 PAPER/$ up to $100K, 40/$ to $1M, 10/$ to $10M, 3/$ beyond.
+            100 STAKE/$ up to $100K, 40/$ to $1M, 10/$ to $10M, 3/$ beyond.
           </p>
         </div>
         <div className="blk">
