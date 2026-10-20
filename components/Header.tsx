@@ -9,7 +9,7 @@ const NAV = [
   ["/", "Home"],
   ["/markets", "Markets"],
   ["/portfolio", "Slips"],
-  ["/paper", "PAPER"],
+  ["/paper", "STAKE"],
   ["/activity", "Tape"],
   ["/stats", "Ledger"],
 ] as const;
@@ -32,7 +32,7 @@ function WalletModal({ open, onClose }: { open: boolean; onClose: () => void }) 
           <b id="mt">Connect a wallet</b>
         </div>
         <p style={{ color: "var(--ink2)", fontSize: 14, marginBottom: 14 }}>
-          Paper Bet works with any EVM wallet on Robinhood Chain. No real funds move yet — this phase uses a
+          Stake works with any EVM wallet on Robinhood Chain. No real funds move yet — this phase uses a
           virtual testnet balance per address.
         </p>
         <button
@@ -107,8 +107,8 @@ export default function Header() {
   return (
     <>
       <header className="wrap deskbar">
-        <Link className="brand" href="/" aria-label="Paper Bet home">
-          <i className="mark"></i>Paper Bet
+        <Link className="brand" href="/" aria-label="Stake home">
+          <i className="mark"></i>Stake
         </Link>
         {isWrongChain ? (
           <button

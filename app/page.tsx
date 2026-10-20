@@ -74,14 +74,14 @@ function HeroSim({ market, emissionRate }: { market: MarketRow | null; emissionR
                 <div className="why">
                   {side === "both"
                     ? `Issued on a net loss of ${usd(r.loss)} after both sides settle.`
-                    : `Your verified net loss sets the PAPER you can claim: ${num(r.paper)} PAPER.`}
+                    : `Your verified net loss sets the STAKE you can claim: ${num(r.paper)} STAKE.`}
                 </div>
               </>
             ) : (
               <>
                 <small>To collect</small>
                 <div className="amt zero">{usd(r.payout)}</div>
-                <div className="why">No net loss, so no PAPER is created.</div>
+                <div className="why">No net loss, so no STAKE is created.</div>
               </>
             )}
           </div>
@@ -179,6 +179,9 @@ export default function Home() {
             A prediction market where realized losses create protocol ownership. Bet YES or NO on price
             questions, settled on Robinhood Chain testnet.
           </p>
+          <p className="note" style={{ marginTop: -14, marginBottom: 20 }}>
+            A loss stays a loss. STAKE isn&rsquo;t a refund.
+          </p>
           <div className="cta">
             {heroMarket && (
               <Link className="btn big" href={`/market/${heroMarket.id}`}>
@@ -189,7 +192,7 @@ export default function Home() {
               Browse All Markets ↓
             </a>
             <Link className="btn big ghost" href="/paper">
-              How PAPER Works
+              How STAKE Works
             </Link>
           </div>
         </div>
@@ -222,7 +225,7 @@ export default function Home() {
             <b className="gd">
               <CountUp value={paperToNumber(stats.paperCreated)} duration={1400} />
             </b>
-            <small>PAPER created</small>
+            <small>STAKE created</small>
           </div>
           <div>
             <b>
@@ -249,8 +252,8 @@ export default function Home() {
         </div>
         <div className="lcol l">
           <h3>If you lose</h3>
-          <div className="stmt">You claim PAPER.</div>
-          <p>You lose the bet. Your verified net loss, not your gross stake, decides how much PAPER you can claim.</p>
+          <div className="stmt">You claim STAKE.</div>
+          <p>You lose the bet. Your verified net loss, not your gross stake, decides how much STAKE you can claim.</p>
         </div>
       </section>
 
@@ -269,14 +272,14 @@ export default function Home() {
         <div className="step-card">
           <div className="step-num">03</div>
           <h4>Loss Into Ownership</h4>
-          <p>Winners claim losing pool profits pro-rata. Net realized losers claim immutable protocol ownership via $PAPER tokens.</p>
+          <p>Winners claim losing pool profits pro-rata. Net realized losers claim immutable protocol ownership via $STAKE tokens.</p>
         </div>
       </section>
 
       <div className="hedge-box">
         <div className="hedge-badge">ANTI-FARMING INVARIANT</div>
         <p>
-          <b>Betting both sides?</b> Allowed. Your total payout is compared against your total stake, and PAPER is strictly minted on <i>net realized loss</i>. Hedging cannot farm protocol ownership.
+          <b>Betting both sides?</b> Allowed. Your total payout is compared against your total stake, and STAKE is strictly minted on <i>net realized loss</i>. Hedging cannot farm protocol ownership.
         </p>
       </div>
 
