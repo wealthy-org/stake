@@ -104,7 +104,7 @@ export default function MarketDetailPage() {
             <i></i>
             <b>{usd(Number(market.strike_price), 0)}</b>
           </div>
-          <Link className="btn ghost block" style={{ marginTop: 14 }} href={`/proof/${market.id}`}>
+          <Link className="btn ghost block" style={{ marginTop: 14 }} href={`/app/proof/${market.id}`}>
             View the settlement record
           </Link>
         </div>
@@ -133,7 +133,7 @@ export default function MarketDetailPage() {
   return (
     <>
       <div className="crumb">
-        <Link href="/">Board</Link>
+        <Link href="/app">Board</Link>
         <span>/</span>
         <span>No. {market.id.slice(-4)}</span>
       </div>

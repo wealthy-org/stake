@@ -6,12 +6,12 @@ import { useEffect, useState } from "react";
 import { useWallet } from "./providers";
 
 const NAV = [
-  ["/", "Home"],
-  ["/markets", "Markets"],
-  ["/portfolio", "Slips"],
-  ["/paper", "STAKE"],
-  ["/activity", "Tape"],
-  ["/stats", "Ledger"],
+  ["/app", "Home"],
+  ["/app/markets", "Markets"],
+  ["/app/portfolio", "Slips"],
+  ["/app/paper", "STAKE"],
+  ["/app/activity", "Tape"],
+  ["/app/stats", "Ledger"],
 ] as const;
 
 function WalletModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -107,7 +107,7 @@ export default function Header() {
   return (
     <>
       <header className="wrap deskbar">
-        <Link className="brand" href="/" aria-label="Stake home">
+        <Link className="brand" href="/app" aria-label="Stake home">
           <i className="mark"></i>Stake
         </Link>
         {isWrongChain ? (

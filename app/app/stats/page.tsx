@@ -107,7 +107,7 @@ export default function StatsPage() {
             {largest.map((m) => (
               <tr key={m.id}>
                 <td>
-                  <Link href={`/market/${m.id}`}>{m.question}</Link>
+                  <Link href={`/app/market/${m.id}`}>{m.question}</Link>
                 </td>
                 <td>{short(collateralToNumber(m.yes_pool) + collateralToNumber(m.no_pool))}</td>
                 <td>{m.bettor_count ?? 0}</td>

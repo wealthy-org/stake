@@ -19,7 +19,7 @@ export default function MarketRow({ market }: { market: MarketRowType }) {
         <Coin symbol={market.asset_symbol} />
         <div>
           <h3>
-            <Link href={`/market/${market.id}`}>{market.question}</Link>
+            <Link href={`/app/market/${market.id}`}>{market.question}</Link>
           </h3>
           <small>
             <span>
@@ -57,10 +57,10 @@ export default function MarketRow({ market }: { market: MarketRowType }) {
       </div>
       {open ? (
         <div className="acts2">
-          <Link className="bet y" href={`/market/${market.id}?side=yes`}>
+          <Link className="bet y" href={`/app/market/${market.id}?side=yes`}>
             Bet YES
           </Link>
-          <Link className="bet n" href={`/market/${market.id}?side=no`}>
+          <Link className="bet n" href={`/app/market/${market.id}?side=no`}>
             Bet NO
           </Link>
         </div>

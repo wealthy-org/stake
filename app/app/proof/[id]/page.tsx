@@ -33,9 +33,9 @@ export default function ProofPage() {
     return (
       <>
         <div className="crumb">
-          <Link href="/">Board</Link>
+          <Link href="/app">Board</Link>
           <span>/</span>
-          <Link href={`/market/${market.id}`}>No. {market.id.slice(-4)}</Link>
+          <Link href={`/app/market/${market.id}`}>No. {market.id.slice(-4)}</Link>
           <span>/</span>
           <span>Settlement record</span>
         </div>
@@ -55,9 +55,9 @@ export default function ProofPage() {
   return (
     <>
       <div className="crumb">
-        <Link href="/">Board</Link>
+        <Link href="/app">Board</Link>
         <span>/</span>
-        <Link href={`/market/${market.id}`}>No. {market.id.slice(-4)}</Link>
+        <Link href={`/app/market/${market.id}`}>No. {market.id.slice(-4)}</Link>
         <span>/</span>
         <span>Settlement record</span>
       </div>

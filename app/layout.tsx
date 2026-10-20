@@ -1,6 +1,5 @@
 import "./globals.css";
 import { AppProviders } from "@/components/providers";
-import Header from "@/components/Header";
 
 export const metadata = {
   title: "Stake",
@@ -13,6 +12,10 @@ export const viewport = {
   viewportFit: "cover",
 };
 
+// Deliberately no <Header/>, .wrap/.sheet shell, or footer here — the public
+// landing page (app/page.tsx) and the app shell (app/app/layout.tsx) each
+// have their own chrome, since the landing page isn't styled as a "desk +
+// sheet" app screen.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
@@ -25,22 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <AppProviders>
-          <Header />
-          <div className="wrap">
-            <main className="sheet">{children}</main>
-          </div>
-          <footer>
-            <div className="wrap">
-              <p>
-                Stake is a backend-logic preview on Robinhood Chain Testnet. Every balance here is a
-                virtual testnet balance — no real funds move yet. You can lose your entire stake, and pool
-                share is not a probability.
-              </p>
-              <p>Settlement price comes from Binance spot data for this phase. Payouts come only from the losing pool.</p>
-            </div>
-          </footer>
-        </AppProviders>
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

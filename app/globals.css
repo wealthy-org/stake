@@ -169,6 +169,11 @@ input[type=range]{flex:1;accent-color:var(--ink);height:4px}
 .hedge-box p{color:var(--ink);font-size:14px;line-height:1.55}
 .hedge-box b{color:var(--biro)}
 
+/* landing page footer band */
+.page-foot{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;margin-top:56px;padding-top:24px;border-top:1.5px solid var(--ink);font-size:13px;color:var(--ink2)}
+.next{font-weight:700;color:var(--ink)}
+.next:hover{text-decoration:underline}
+
 /* the board */
 .sec{margin:72px 0 10px;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .sec h2{font-size:clamp(44px,5.5vw,68px)}
