@@ -14,38 +14,67 @@ import { CountUp } from "@/components/CountUp";
  * so a first-time visitor sees a concrete YES/NO price question before ever
  * launching the app. The real, data-backed simulator lives at /app.
  */
-const TOTE_ROWS = [
-  { side: "ETH > $5,000", pool: "$100,000", shr: "60%", pays: "1.65" },
-  { side: "BTC > $150,000", pool: "$100,000", shr: "45%", pays: "2.20" },
-  { side: "SOL > $300", pool: "$100,000", shr: "52%", pays: "1.90" },
-] as const;
+interface FlapField {
+  text: string;
+  start: number; // 0-indexed column
+  dim?: boolean;
+  gold?: boolean;
+}
+
+/** One character per flap cell (20 columns), matching the reference tote board exactly. */
+function FlapRow({ fields, cols = 20 }: { fields: FlapField[]; cols?: number }) {
+  const chars: { ch: string; dim?: boolean; gold?: boolean }[] = Array.from({ length: cols }, () => ({ ch: "" }));
+  for (const f of fields) {
+    for (let i = 0; i < f.text.length && f.start + i < cols; i++) {
+      chars[f.start + i] = { ch: f.text[i], dim: f.dim, gold: f.gold };
+    }
+  }
+  return (
+    <div className="tboard-flaps">
+      {chars.map((c, i) => (
+        <div key={i} className={"tboard-cell" + (c.dim ? " dim" : "") + (c.gold ? " gold" : "")}>
+          <span className="t">
+            <b>{c.ch}</b>
+          </span>
+          <span className="b">
+            <b>{c.ch}</b>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Column spans mirror the reference's .cols header: SIDE(1-4) POOL(5-12) SHR(13-16) PAYS(17-21)
+const TOTE_ROWS: FlapField[][] = [
+  [{ text: "ETH", start: 0, gold: true }, { text: "ABOVE $5,000?", start: 4 }],
+  [{ text: "YES", start: 0, gold: true }, { text: "$60,000", start: 4 }, { text: "60%", start: 12, dim: true }, { text: "1.65", start: 16 }],
+  [{ text: "NO", start: 0 }, { text: "$40,000", start: 4, dim: true }, { text: "40%", start: 12, dim: true }, { text: "2.47", start: 16, dim: true }],
+];
 
 function ToteBoard() {
   return (
     <div className="tboard">
-      <div className="tboard-strip">
-        <span>
-          <span className="tboard-lamp"></span>Stake tote · example pools
-        </span>
-        <span>1 / 3</span>
-      </div>
-      <div className="tboard-cols">
-        <span>SIDE</span>
-        <span>POOL</span>
-        <span>SHR</span>
-        <span>PAYS/$1</span>
-      </div>
-      {TOTE_ROWS.map((row) => (
-        <div className="tboard-row" key={row.side}>
-          <span className="tboard-cell gold">{row.side}</span>
-          <span className="tboard-cell dim">{row.pool}</span>
-          <span className="tboard-cell dim">{row.shr}</span>
-          <span className="tboard-cell">{row.pays}</span>
+      <div className="tboard-in">
+        <div className="tboard-strip">
+          <span>
+            <span className="tboard-lamp"></span>Stake tote · example pools
+          </span>
+          <span>1 / 3</span>
         </div>
-      ))}
-      <div className="tboard-strip" style={{ marginTop: 6 }}>
-        <span>Pays incl. stake · 2% example fee</span>
-        <span>No live bets</span>
+        {TOTE_ROWS.map((fields, i) => (
+          <FlapRow key={i} fields={fields} />
+        ))}
+        <div className="tboard-cols">
+          <span>SIDE</span>
+          <span>POOL</span>
+          <span>SHR</span>
+          <span>PAYS/$1</span>
+        </div>
+        <div className="tboard-strip">
+          <span>Pays incl. stake · 2% example fee</span>
+          <span>No live bets</span>
+        </div>
       </div>
     </div>
   );
@@ -214,7 +243,9 @@ export default function LandingPage() {
               </span>
               <h1>
                 <span>Win the bet.</span>
-                <span>Lose into ownership.</span>
+                <span>
+                  <span className="hl">Lose into ownership.</span>
+                </span>
               </h1>
               <p className="lede">
                 A prediction market where realized losses create protocol ownership. Bet YES or NO on price
