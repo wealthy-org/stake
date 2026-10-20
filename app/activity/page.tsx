@@ -25,7 +25,7 @@ const LABEL: Record<string, string> = {
   MarketCancelled: "Market cancelled",
   PayoutClaimed: "Winnings claimed",
   RefundClaimed: "Refund claimed",
-  LossRewardClaimed: "PAPER minted",
+  LossRewardClaimed: "STAKE minted",
 };
 
 /* ── icon per badge kind ── */
@@ -80,7 +80,7 @@ function describe(e: ActivityEvent): string {
     case "RefundClaimed":
       return `${usd(collateralToNumber(p.amount), 2)} USDG refunded, ${mkt}`;
     case "LossRewardClaimed":
-      return `${num(paperToNumber(p.paperMinted))} PAPER minted from a ${usd(collateralToNumber(p.realizedLoss), 0)} net loss`;
+      return `${num(paperToNumber(p.paperMinted))} STAKE minted from a ${usd(collateralToNumber(p.realizedLoss), 0)} net loss`;
     default:
       return mkt;
   }

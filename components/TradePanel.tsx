@@ -139,7 +139,7 @@ export default function TradePanel({
           <b>{usd(other.loss)}</b>
         </div>
         <div className="ld">
-          <span>PAPER on that loss</span>
+          <span>STAKE on that loss</span>
           <i></i>
           <b>{num(other.paper)}</b>
         </div>
@@ -165,7 +165,7 @@ export default function TradePanel({
       )}
       <div className="perf"></div>
       <p className="stubnote">
-        Keep your stub. If you lose, your verified net loss becomes PAPER you can claim. You can lose your entire
+        Keep your stub. If you lose, your verified net loss becomes STAKE you can claim. You can lose your entire
         stake.
       </p>
     </>

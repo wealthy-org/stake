@@ -31,7 +31,7 @@ export default function ResultSlip({ market, position, onChanged }: { market: Ma
           {market.cancel_reason === "empty_side_pool" || market.cancel_reason === "zero_pool_at_settlement"
             ? "One side of the pool was empty at close, so this market cancelled instead of settling into broken math."
             : "This market was cancelled before resolution."}{" "}
-          Every stake is refunded in full, with no fee and no PAPER.
+          Every stake is refunded in full, with no fee and no STAKE.
         </p>
         <div className="stubs">
           <div className="srow pay">
@@ -114,7 +114,7 @@ export default function ResultSlip({ market, position, onChanged }: { market: Ma
       )}
       {both && lost && (
         <p style={{ fontSize: 13, color: "var(--ink2)", marginTop: 6 }}>
-          PAPER is based on the {usd(realizedLoss)} net loss, not the losing side&rsquo;s gross stake.
+          STAKE is based on the {usd(realizedLoss)} net loss, not the losing side&rsquo;s gross stake.
         </p>
       )}
       <span className={"stamp sm " + (won ? "won" : "lost")}>{won ? "Won" : both ? "Net loss" : "Lost"}</span>
@@ -154,8 +154,8 @@ export default function ResultSlip({ market, position, onChanged }: { market: Ma
         {realizedLoss > 0.005 && (
           <div className="srow mc">
             <div>
-              <small>PAPER certificate</small>
-              <b>{paperAmount !== null ? num(paperAmount) : "—"} PAPER</b>
+              <small>STAKE certificate</small>
+              <b>{paperAmount !== null ? num(paperAmount) : "—"} STAKE</b>
             </div>
             {position.loss_reward_claimed ? (
               <span className="done">Claimed</span>
@@ -168,7 +168,7 @@ export default function ResultSlip({ market, position, onChanged }: { market: Ma
                   setBusy("paper");
                   try {
                     const res = await claimPaper(market.id, address);
-                    toast(`Claimed ${num(paperToNumber(res.paperMinted))} PAPER`);
+                    toast(`Claimed ${num(paperToNumber(res.paperMinted))} STAKE`);
                     await refresh();
                     onChanged();
                   } catch (err) {

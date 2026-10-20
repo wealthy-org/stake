@@ -54,7 +54,7 @@ export default function StatsPage() {
           <b className="gd">
             <CountUp value={paperToNumber(stats.paperCreated)} duration={1400} />
           </b>
-          <small>PAPER created</small>
+          <small>STAKE created</small>
         </div>
         <div>
           <b>

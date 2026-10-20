@@ -39,7 +39,7 @@ export default function PortfolioPage() {
         </div>
         <div className="empty">
           <h3>Connect a wallet to see your slips</h3>
-          <p>Open bets, claimable winnings and PAPER certificates show up here.</p>
+          <p>Open bets, claimable winnings and STAKE certificates show up here.</p>
           <button className="btn big" onClick={connectInjected}>
             Connect wallet
           </button>{" "}
@@ -81,7 +81,7 @@ export default function PortfolioPage() {
           <b>{usd(balance, 0)}</b>
         </div>
         <div>
-          <small>PAPER balance</small>
+          <small>STAKE balance</small>
           <b style={{ color: "var(--gold-d)" }}>{paperBalance.toLocaleString("en-US")}</b>
         </div>
         <div>

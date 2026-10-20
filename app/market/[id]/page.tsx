@@ -122,7 +122,7 @@ export default function MarketDetailPage() {
         <div className="blk">
           <h3>Betting is closed</h3>
           <p>
-            The pool is locked. Paper Bet is waiting for a verified price at{" "}
+            The pool is locked. Stake is waiting for a verified price at{" "}
             {new Date(market.resolution_timestamp).toUTCString()}.
           </p>
         </div>
