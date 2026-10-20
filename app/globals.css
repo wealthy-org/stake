@@ -1,7 +1,7 @@
 :root{
   /* the desk, the ledger sheet, the slips */
   --desk:#2631A6; --desk-ink:#F3F6EE; --desk-dim:rgba(243,246,238,.72); --desk-line:rgba(243,246,238,.22);
-  --sheet:#ECEDE7; --rule:#D6E5D1; --slip:#FAFAF6; --sline:#DDD8C6;
+  --sheet:#ECEDE7; --rule:#C6C8BE; --slip:#FAFAF6; --sline:#DDD8C6;
   --ink:#121310; --ink2:#575951; --ink3:#8B8D84; --line:#C6C8BE;
   --biro:#1F2BA3;
   --yes:#2B45E6; --yes-t:#E3E8FF; --no:#CF3520; --no-t:#FFE2D9;
@@ -14,9 +14,9 @@
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){--desk:#0D1038;--sheet:#ECEDE7;--rule:#BCCBB8;--line:#C6C8BE;--slip:#FAFAF6;--gold:#CFF23A;--gold-d:#121310;color-scheme:dark}
+  :root:not([data-theme="light"]){--desk:#0D1038;--sheet:#ECEDE7;--rule:#C6C8BE;--line:#C6C8BE;--slip:#FAFAF6;--gold:#CFF23A;--gold-d:#121310;color-scheme:dark}
 }
-:root[data-theme="dark"]{--desk:#0D1038;--sheet:#ECEDE7;--rule:#BCCBB8;--line:#C6C8BE;--slip:#FAFAF6;--gold:#CFF23A;--gold-d:#121310;color-scheme:dark}
+:root[data-theme="dark"]{--desk:#0D1038;--sheet:#ECEDE7;--rule:#C6C8BE;--line:#C6C8BE;--slip:#FAFAF6;--gold:#CFF23A;--gold-d:#121310;color-scheme:dark}
 *{box-sizing:border-box;margin:0}
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 16px);height:100%;overflow-x:hidden}
