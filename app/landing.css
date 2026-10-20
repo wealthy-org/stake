@@ -31,6 +31,7 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  overflow-y: visible;
   min-height: 100vh;
 }
 
@@ -245,7 +246,7 @@
 
 /* Page scaffolding */
 .landing-main { min-height: calc(100vh - 70px); }
-.landing-page { max-width: var(--max); margin: 0 auto; padding: 0 var(--pad); overflow-x: clip; }
+.landing-page { max-width: var(--max); margin: 0 auto; padding: 0 var(--pad); overflow-x: clip; scroll-margin-top: 84px; }
 .kicker {
   display: flex;
   justify-content: space-between;

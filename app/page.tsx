@@ -20,6 +20,16 @@ function calculatePays(own: number, other: number): string {
 
 export default function LandingPage() {
   const [activePage, setActivePage] = useState<"home" | "markets" | "how" | "genesis" | "docs">("home");
+  const isDocs = activePage === "docs";
+  // Marketing sections are always mounted and stacked for scroll navigation;
+  // "entered" tracks which ones have scrolled into view at least once so
+  // their rise/reveal animations play on arrival instead of only on mount.
+  const [entered, setEntered] = useState<Record<string, boolean>>({ home: true });
+  const homeSectionRef = useRef<HTMLElement>(null);
+  const marketsSectionRef = useRef<HTMLElement>(null);
+  const howSectionRef = useRef<HTMLElement>(null);
+  const genesisSectionRef = useRef<HTMLElement>(null);
+  const genesisAnimatedRef = useRef(false);
   const [activeDocSlug, setActiveDocSlug] = useState<string>("what-is-stake");
   const [docsMobileOpen, setDocsMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -90,15 +100,24 @@ export default function LandingPage() {
     }
   };
 
-  // Genesis counter split-flap spinning state
+  // Genesis counter split-flap spinning state — spins up to the real
+  // current $STAKE supply (minted against verified losses), not a fixed 0.
   const [counterDigits, setCounterDigits] = useState<string[]>(
     "000,000,000".split("")
   );
 
-  useEffect(() => {
-    if (activePage !== "genesis") return;
+  const genesisSupplyCount = useMemo(() => {
+    if (!paper) return null;
+    const n = Math.max(0, Math.round(paperToNumber(paper.supply)));
+    const digits = String(n).padStart(9, "0").slice(-9);
+    return `${digits.slice(0, 3)},${digits.slice(3, 6)},${digits.slice(6, 9)}`;
+  }, [paper]);
 
-    const COUNT = "000,000,000";
+  useEffect(() => {
+    if (!entered.genesis || !genesisSupplyCount || genesisAnimatedRef.current) return;
+    genesisAnimatedRef.current = true;
+
+    const COUNT = genesisSupplyCount;
     const DIGITS = "0123456789";
     setCounterDigits(COUNT.split("").map((c) => (c === "," ? "," : " ")));
 
@@ -119,7 +138,7 @@ export default function LandingPage() {
             clearInterval(interval);
             setCounterDigits((prev) => {
               const updated = [...prev];
-              updated[i] = "0";
+              updated[i] = ch;
               return updated;
             });
           } else {
@@ -143,7 +162,37 @@ export default function LandingPage() {
         clearInterval(t);
       });
     };
-  }, [activePage]);
+  }, [entered.genesis, genesisSupplyCount]);
+
+  // Scroll-spy: mark each marketing section "entered" the first time it
+  // scrolls into view (plays its reveal animation), and keep the header
+  // nav's active-section highlight in sync with scroll position.
+  useEffect(() => {
+    if (isDocs) return;
+    const sections: Array<["home" | "markets" | "how" | "genesis", React.RefObject<HTMLElement>]> = [
+      ["home", homeSectionRef],
+      ["markets", marketsSectionRef],
+      ["how", howSectionRef],
+      ["genesis", genesisSectionRef],
+    ];
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const id = entry.target.id as "home" | "markets" | "how" | "genesis";
+          if (!entry.isIntersecting) return;
+          setEntered((prev) => (prev[id] ? prev : { ...prev, [id]: true }));
+          if (entry.intersectionRatio > 0.4) {
+            setActivePage((prev) => (prev === "docs" ? prev : id));
+          }
+        });
+      },
+      { threshold: [0.25, 0.4, 0.6], rootMargin: "-84px 0px -45% 0px" }
+    );
+    sections.forEach(([, ref]) => {
+      if (ref.current) observer.observe(ref.current);
+    });
+    return () => observer.disconnect();
+  }, [isDocs]);
 
   // Fetch real data on mount and poll for real-time updates
   useEffect(() => {
@@ -165,6 +214,12 @@ export default function LandingPage() {
     };
   }, []);
 
+  // Safety net: never let a fresh mount start with the flipover transition
+  // stuck visible (can happen after a hot-reload mid-transition in dev).
+  useEffect(() => {
+    setIsTransitioning(false);
+  }, []);
+
   // Sync hash routing if user comes with #markets, #how, #genesis, #docs
   useEffect(() => {
     const handleHash = (rawHash: string) => {
@@ -177,6 +232,11 @@ export default function LandingPage() {
         }
       } else if (["home", "markets", "how", "genesis", "docs"].includes(h)) {
         setActivePage(h as any);
+        if (h !== "docs") {
+          requestAnimationFrame(() => {
+            document.getElementById(h)?.scrollIntoView({ behavior: "instant" as ScrollBehavior, block: "start" });
+          });
+        }
       }
     };
 
@@ -198,10 +258,33 @@ export default function LandingPage() {
     document.title = `Stake · ${docTitles[activePage] || "Your call. Your stake."}`;
   }, [activePage]);
 
-  // Handle smooth page navigation with transition flipover
+  // Marketing sections (home/markets/how/genesis) are always mounted and
+  // stacked, so moving between them is a smooth scroll with no transition.
+  // Only entering/leaving "docs" mode (a separate mounted section) uses the
+  // flipover transition, since that swaps what's in the DOM.
+  const scrollToSection = (id: string) => {
+    requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
   const navigateTo = (page: "home" | "markets" | "how" | "genesis" | "docs") => {
-    if (page === activePage) return;
     setMenuOpen(false);
+
+    if (page === activePage) {
+      if (page !== "docs") scrollToSection(page);
+      return;
+    }
+
+    const wasDocs = activePage === "docs";
+    const goingToDocs = page === "docs";
+
+    if (!wasDocs && !goingToDocs) {
+      setActivePage(page);
+      window.history.pushState(null, "", `#${page}`);
+      scrollToSection(page);
+      return;
+    }
 
     const labels: Record<string, string> = {
       home: "00 / Home",
@@ -226,6 +309,7 @@ export default function LandingPage() {
       setActivePage(page);
       window.history.pushState(null, "", `#${page}`);
       window.scrollTo({ top: 0, behavior: "instant" });
+      if (!goingToDocs) scrollToSection(page);
     }, 400);
 
     setTimeout(() => {
@@ -341,12 +425,11 @@ export default function LandingPage() {
 
   // Tote board cycle timer
   useEffect(() => {
-    if (activePage !== "home") return;
     const interval = setInterval(() => {
       setBoardIndex((prev) => (prev + 1) % Math.min(displayMarkets.length, 3));
     }, 6500);
     return () => clearInterval(interval);
-  }, [activePage, displayMarkets.length]);
+  }, [displayMarkets.length]);
 
   const activeTote = displayMarkets[boardIndex] || displayMarkets[0];
 
@@ -405,7 +488,6 @@ export default function LandingPage() {
           </nav>
 
           <div className="top-end">
-            <span className="preview">Concept preview</span>
             <Link className="landing-btn sm" href="/app">
               <span className="btn-label">Take a side</span>
               <span className="arr" aria-hidden="true">→</span>
@@ -427,8 +509,13 @@ export default function LandingPage() {
       {/* ── MAIN CONTENT ── */}
       <main className="landing-main" id="content">
         {/* ── SECTION: HOME ── */}
-        {activePage === "home" && (
-          <section className="landing-page entered" id="home" aria-label="Stake introduction">
+        {!isDocs && (
+          <section
+            className={`landing-page ${entered.home ? "entered" : ""}`}
+            id="home"
+            aria-label="Stake introduction"
+            ref={homeSectionRef}
+          >
             <div className="kicker">
               <b>A stake in every outcome.</b>
               <span>Robinhood Chain / Independent project</span>
@@ -572,8 +659,13 @@ export default function LandingPage() {
         )}
 
         {/* ── SECTION: MARKETS ── */}
-        {activePage === "markets" && (
-          <section className="landing-page entered" id="markets" aria-label="Prediction markets">
+        {!isDocs && (
+          <section
+            className={`landing-page ${entered.markets ? "entered" : ""}`}
+            id="markets"
+            aria-label="Prediction markets"
+            ref={marketsSectionRef}
+          >
             <div className="kicker">
               <b>01 / Markets</b>
               <span>Live prediction pools · Robinhood Chain testnet · {markets.length} total</span>
@@ -662,8 +754,8 @@ export default function LandingPage() {
                     </h2>
                     <div className="pool">
                       <div className="pool-nums">
-                        <span>${m.yes.toLocaleString()}<i>YES</i></span>
-                        <span>${m.no.toLocaleString()}<i>NO</i></span>
+                        <span>${m.yes.toLocaleString("en-US")}<i>YES</i></span>
+                        <span>${m.no.toLocaleString("en-US")}<i>NO</i></span>
                       </div>
                       <div className="landing-split">
                         <span className="y" style={{ "--w": `${m.yesPct}%` } as any} />
@@ -720,8 +812,13 @@ export default function LandingPage() {
         )}
 
         {/* ── SECTION: HOW IT WORKS ── */}
-        {activePage === "how" && (
-          <section className="landing-page entered" id="how" aria-label="How Stake works">
+        {!isDocs && (
+          <section
+            className={`landing-page ${entered.how ? "entered" : ""}`}
+            id="how"
+            aria-label="How Stake works"
+            ref={howSectionRef}
+          >
             <div className="kicker">
               <b>How it works</b>
               <span>Predict / Settle / Claim</span>
@@ -859,8 +956,13 @@ export default function LandingPage() {
         )}
 
         {/* ── SECTION: GENESIS ── */}
-        {activePage === "genesis" && (
-          <section className="landing-page entered" id="genesis" aria-label="Token genesis">
+        {!isDocs && (
+          <section
+            className={`landing-page ${entered.genesis ? "entered" : ""}`}
+            id="genesis"
+            aria-label="Token genesis"
+            ref={genesisSectionRef}
+          >
             <div className="kicker">
               <b>Genesis</b>
               <span>Proposed launch design</span>
