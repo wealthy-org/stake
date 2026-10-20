@@ -29,51 +29,69 @@ function IllustrativeSim() {
 
   return (
     <>
-      <div className="slip" data-side={side === "both" ? "" : side}>
-        <div className="slip-h">
-          <b>Bet slip</b>
-          <span className="no">Example</span>
-        </div>
-        <div className="slip-q">Will ETH be above $5,000 at 00:00 UTC on a given date?</div>
-        <div className="fl">
-          <span>Your pick</span>
-          <span className="fill">{side === "both" ? "YES and NO" : side.toUpperCase()}</span>
-        </div>
-        <div className="fl">
-          <span>{side === "both" ? "Stake each" : "Stake"}</span>
-          <span className="fill">{usd(amt, 2)}</span>
-        </div>
-        <div className="fl">
-          <span>Result</span>
-          <span className="fill">{wins.toUpperCase()} wins</span>
-        </div>
-        <div className="perf"></div>
-        <div className="stubzone">
-          <div className="stub">
-            {won ? (
-              <>
-                <small>To collect</small>
-                <div className="amt">{usd(r.payout)}</div>
-                <div className="why">
-                  Your {usd(r.total, 0)} stake back plus {usd(r.profit)} from the losing pool. You claim money.
-                </div>
-              </>
-            ) : lost ? (
-              <>
-                <small>Net loss</small>
-                <div className="amt zero">{usd(r.loss)}</div>
-                <div className="why">Your verified net loss sets the STAKE you can claim.</div>
-              </>
-            ) : (
-              <>
-                <small>To collect</small>
-                <div className="amt zero">{usd(r.payout)}</div>
-                <div className="why">No net loss, so no STAKE is created.</div>
-              </>
-            )}
+      <div className="ticket-wrap">
+        <div className="ticket">
+          <div className="t-head">
+            <span>Stake · pool ticket</span>
+            <span>Example</span>
           </div>
+          <div className="t-row">
+            <span>Pool</span>
+            <i></i>
+            <b>ETH/USD</b>
+          </div>
+          <div className="t-row">
+            <span>Question</span>
+            <i></i>
+            <b>Above $5,000?</b>
+          </div>
+          <div className="t-side">
+            <strong>{side === "both" ? "Y/N" : side.toUpperCase()}</strong>
+            <span>Your view</span>
+          </div>
+          <div className="t-row">
+            <span>{side === "both" ? "Stake each" : "Stake"}</span>
+            <i></i>
+            <b>{usd(amt, 2)}</b>
+          </div>
+          <div className="t-row">
+            <span>Market</span>
+            <i></i>
+            <b>{wins.toUpperCase()} wins</b>
+          </div>
+          <div className="t-sep"></div>
+          {won ? (
+            <div className="t-row">
+              <span>Payout</span>
+              <i></i>
+              <b>{usd(r.payout)}</b>
+            </div>
+          ) : lost ? (
+            <div className="t-row">
+              <span>Net loss</span>
+              <i></i>
+              <b>{usd(r.loss)}</b>
+            </div>
+          ) : (
+            <div className="t-row">
+              <span>Payout</span>
+              <i></i>
+              <b>{usd(r.payout)}</b>
+            </div>
+          )}
+          <div className="barcode"></div>
+          <div className="t-foot">Illustrative example · not a bet</div>
+          {won && <span className="stamp won">Paid</span>}
+          {lost && <span className="stamp lost">Net loss</span>}
         </div>
       </div>
+      <p className="why" style={{ margin: "14px 0", fontSize: 13, color: "var(--ink2)" }}>
+        {won
+          ? `Your ${usd(r.total, 0)} stake back plus ${usd(r.profit)} from the losing pool. You claim money.`
+          : lost
+            ? "Your verified net loss sets the STAKE you can claim."
+            : "No net loss, so no STAKE is created."}
+      </p>
       <div className="ctl">
         <div>
           <label>Your pick</label>
