@@ -14,6 +14,43 @@ import { CountUp } from "@/components/CountUp";
  * so a first-time visitor sees a concrete YES/NO price question before ever
  * launching the app. The real, data-backed simulator lives at /app.
  */
+const TOTE_ROWS = [
+  { side: "ETH > $5,000", pool: "$100,000", shr: "60%", pays: "1.65" },
+  { side: "BTC > $150,000", pool: "$100,000", shr: "45%", pays: "2.20" },
+  { side: "SOL > $300", pool: "$100,000", shr: "52%", pays: "1.90" },
+] as const;
+
+function ToteBoard() {
+  return (
+    <div className="tboard">
+      <div className="tboard-strip">
+        <span>
+          <span className="tboard-lamp"></span>Stake tote · example pools
+        </span>
+        <span>1 / 3</span>
+      </div>
+      <div className="tboard-cols">
+        <span>SIDE</span>
+        <span>POOL</span>
+        <span>SHR</span>
+        <span>PAYS/$1</span>
+      </div>
+      {TOTE_ROWS.map((row) => (
+        <div className="tboard-row" key={row.side}>
+          <span className="tboard-cell gold">{row.side}</span>
+          <span className="tboard-cell dim">{row.pool}</span>
+          <span className="tboard-cell dim">{row.shr}</span>
+          <span className="tboard-cell">{row.pays}</span>
+        </div>
+      ))}
+      <div className="tboard-strip" style={{ marginTop: 6 }}>
+        <span>Pays incl. stake · 2% example fee</span>
+        <span>No live bets</span>
+      </div>
+    </div>
+  );
+}
+
 function IllustrativeSim() {
   const [side, setSide] = useState<"yes" | "no" | "both">("yes");
   const [wins, setWins] = useState<"yes" | "no">("no");
@@ -196,6 +233,7 @@ export default function LandingPage() {
               </div>
             </div>
             <div className="slipcol">
+              <ToteBoard />
               <div className="sim-card">
                 <div className="sim-badge">
                   <span className="dot-pulse"></span>
