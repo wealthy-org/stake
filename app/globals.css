@@ -1,22 +1,22 @@
 :root{
   /* the desk, the ledger sheet, the slips */
   --desk:#2631A6; --desk-ink:#F3F6EE; --desk-dim:rgba(243,246,238,.72); --desk-line:rgba(243,246,238,.22);
-  --sheet:#EAF2E6; --rule:#D6E5D1; --slip:#FFFDF6; --sline:#DDD8C6;
-  --ink:#11152A; --ink2:#424B66; --ink3:#66708A; --line:#C9D6C5;
+  --sheet:#ECEDE7; --rule:#D6E5D1; --slip:#FAFAF6; --sline:#DDD8C6;
+  --ink:#121310; --ink2:#575951; --ink3:#8B8D84; --line:#C6C8BE;
   --biro:#1F2BA3;
   --yes:#2B45E6; --yes-t:#E3E8FF; --no:#CF3520; --no-t:#FFE2D9;
-  --gold:#D4A017; --gold-d:#7A5200; --cert:#FFF4CF;
-  --display:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;
+  --gold:#CFF23A; --gold-d:#121310; --cert:#FFF4CF;
+  --display:'Archivo', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --body:"Schibsted Grotesk","Helvetica Neue",Arial,sans-serif;
-  --type:"Courier Prime","Courier New",monospace;
+  --type:'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   --ease:cubic-bezier(.65,0,.35,1); --out:cubic-bezier(.2,.8,.2,1);
   --shadow:0 1px 0 rgba(17,21,42,.06),0 18px 30px -18px rgba(17,21,42,.45);
   color-scheme:light;
 }
 @media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){--desk:#0D1038;--sheet:#CAD7C6;--rule:#BCCBB8;--line:#AEBDAA;color-scheme:dark}
+  :root:not([data-theme="light"]){--desk:#0D1038;--sheet:#ECEDE7;--rule:#BCCBB8;--line:#C6C8BE;--slip:#FAFAF6;--gold:#CFF23A;--gold-d:#121310;color-scheme:dark}
 }
-:root[data-theme="dark"]{--desk:#0D1038;--sheet:#CAD7C6;--rule:#BCCBB8;--line:#AEBDAA;color-scheme:dark}
+:root[data-theme="dark"]{--desk:#0D1038;--sheet:#ECEDE7;--rule:#BCCBB8;--line:#C6C8BE;--slip:#FAFAF6;--gold:#CFF23A;--gold-d:#121310;color-scheme:dark}
 *{box-sizing:border-box;margin:0}
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 16px);height:100%;overflow-x:hidden}
