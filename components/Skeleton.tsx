@@ -22,38 +22,31 @@ export function Skel({
   );
 }
 
-/** Mirrors MarketRow's grid so the board doesn't jump when real rows swap in. */
+/** Mirrors MarketRow's tote-row grid so the board doesn't jump when real rows swap in. */
 export function SkelMarketRow() {
   return (
-    <article className="brow">
-      <span className="n">
-        <Skel width={28} height={12} />
-      </span>
-      <div className="q">
-        <Skel className="skel-coin" />
-        <div className="skel-row" style={{ flex: 1 }}>
-          <Skel width="70%" height={16} />
-          <Skel width="40%" height={12} />
-        </div>
+    <article className="landing-row">
+      <div className="pno">
+        <Skel width={44} height={40} />
       </div>
-      <div className="shr">
-        <div className="skel-row">
-          <Skel width={40} height={28} />
-          <Skel width={60} height={10} />
-        </div>
+      <div className="skel-row">
+        <Skel width="70%" height={28} />
       </div>
-      <div className="split skel-row">
-        <Skel width="100%" height={8} radius={2} />
-        <Skel width="100%" height={14} />
+      <div className="pool skel-row">
+        <Skel width="100%" height={12} />
+        <Skel width="100%" height={12} radius={2} />
       </div>
-      <Skel width="100%" height={38} radius={5} />
+      <div className="take">
+        <Skel width="100%" height={46} radius={3} />
+        <Skel width="100%" height={46} radius={3} />
+      </div>
     </article>
   );
 }
 
 export function SkelBoard({ rows = 4 }: { rows?: number }) {
   return (
-    <div className="board">
+    <div className="tote">
       {Array.from({ length: rows }).map((_, i) => (
         <SkelMarketRow key={i} />
       ))}
@@ -61,10 +54,10 @@ export function SkelBoard({ rows = 4 }: { rows?: number }) {
   );
 }
 
-export function SkelFacts() {
+export function SkelFacts({ count = 5 }: { count?: number }) {
   return (
-    <div className="facts">
-      {Array.from({ length: 5 }).map((_, i) => (
+    <div className={"facts" + (count === 4 ? " f4" : "")}>
+      {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="skel-row">
           <Skel width={70} height={30} />
           <Skel width={90} height={12} />

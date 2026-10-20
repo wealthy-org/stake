@@ -1,6 +1,7 @@
 import { query } from "../db/client";
 import { openDueMarkets, lockDueMarkets, resolveMarket, cancelMarket } from "../engine/market";
 import { ensureAutoMarkets } from "../engine/autoMarket";
+import { runBotTick } from "../engine/bots";
 
 const TICK_INTERVAL_MS = 15_000;
 let started = false;
@@ -33,6 +34,9 @@ async function tick(): Promise<void> {
 
     // Keeps the board non-empty with zero admin action — see lib/engine/autoMarket.ts.
     await ensureAutoMarkets();
+
+    // Notional bettors keep volumes moving — see lib/engine/bots.ts.
+    await runBotTick().catch((err) => console.error("[worker] bot tick failed:", err));
   } catch (err) {
     console.error("[worker] tick failed:", err);
   }

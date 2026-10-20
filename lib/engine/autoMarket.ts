@@ -1,5 +1,6 @@
 import { query } from "../db/client";
 import { binanceResolver } from "../oracle/binance";
+import { stockOracleResolver } from "../oracle/stock";
 import { createMarket } from "./market";
 import { toBaseUnits } from "./units";
 
@@ -9,71 +10,134 @@ import { toBaseUnits } from "./units";
  * engine-level function, which has no admin-key gate; only the
  * POST /api/markets route does. So this runs fully automatically.
  *
- * Strike price is derived from a LIVE Binance spot price at creation time
- * (the same oracle source used for resolution), rounded to a clean number
- * so the question reads naturally ("above $3,850", not "above $3,842.17").
- * Everything else (duration, fee, bet bounds) is a testnet-only default —
- * brief §75 still has these as open product decisions.
+ * Brief §6 limits V1 to deterministic price questions; this generator
+ * rolls a ladder of them — every asset gets a "tomorrow" market and a
+ * "this week" market (stock tokens get one of each on NVDA, plus 24h
+ * rolls on AAPL/TSLA/GOOGL), some seeded above the strike and some
+ * below. Strike price derives from the LIVE oracle price at creation
+ * time, rounded to a clean number so the question reads naturally.
+ *
+ * Uniqueness is per (asset, horizon-band): an existing active market
+ * whose betting_closes_at lands inside the band covers the slot, so a
+ * 24h market never blocks the weekly one. A small per-asset cap is the
+ * catch-up safety valve so one empty board can't spawn unbounded rows.
+ * Durations, fee, and bounds remain testnet-only defaults (brief §75).
  */
 interface AutoMarketConfig {
   assetSymbol: string;
-  binanceSymbol: string;
-  roundTo: number; // round the live price to the nearest multiple of this
+  source: "binance" | "stock";
+  feedSymbol: string;
+  roundTo: number;
   openForHours: number;
+  direction: "above" | "below";
+  bandHours: number;
 }
 
 const AUTO_MARKETS: AutoMarketConfig[] = [
-  { assetSymbol: "ETH", binanceSymbol: "ETHUSDT", roundTo: 50, openForHours: 24 },
-  { assetSymbol: "BTC", binanceSymbol: "BTCUSDT", roundTo: 1000, openForHours: 24 },
-  { assetSymbol: "SOL", binanceSymbol: "SOLUSDT", roundTo: 5, openForHours: 24 },
+  { assetSymbol: "ETH", source: "binance", feedSymbol: "ETHUSDT", roundTo: 50, openForHours: 24, direction: "above", bandHours: 6 },
+  { assetSymbol: "ETH", source: "binance", feedSymbol: "ETHUSDT", roundTo: 50, openForHours: 168, direction: "above", bandHours: 12 },
+  { assetSymbol: "BTC", source: "binance", feedSymbol: "BTCUSDT", roundTo: 1000, openForHours: 24, direction: "below", bandHours: 6 },
+  { assetSymbol: "BTC", source: "binance", feedSymbol: "BTCUSDT", roundTo: 1000, openForHours: 168, direction: "above", bandHours: 12 },
+  { assetSymbol: "SOL", source: "binance", feedSymbol: "SOLUSDT", roundTo: 5, openForHours: 24, direction: "above", bandHours: 6 },
+  { assetSymbol: "SOL", source: "binance", feedSymbol: "SOLUSDT", roundTo: 5, openForHours: 168, direction: "below", bandHours: 12 },
+  { assetSymbol: "NVDA", source: "stock", feedSymbol: "NVDA", roundTo: 10, openForHours: 24, direction: "above", bandHours: 6 },
+  { assetSymbol: "NVDA", source: "stock", feedSymbol: "NVDA", roundTo: 10, openForHours: 168, direction: "above", bandHours: 12 },
+  { assetSymbol: "AAPL", source: "stock", feedSymbol: "AAPL", roundTo: 5, openForHours: 24, direction: "above", bandHours: 6 },
+  { assetSymbol: "TSLA", source: "stock", feedSymbol: "TSLA", roundTo: 10, openForHours: 24, direction: "above", bandHours: 6 },
+  { assetSymbol: "TSLA", source: "stock", feedSymbol: "TSLA", roundTo: 10, openForHours: 168, direction: "above", bandHours: 12 },
+  { assetSymbol: "GOOGL", source: "stock", feedSymbol: "GOOGL", roundTo: 5, openForHours: 24, direction: "above", bandHours: 6 },
 ];
 
+const MAX_ACTIVE_PER_ASSET = 3;
 const ACTIVE_STATUSES = ["draft", "open", "locked", "resolution_pending"];
 
 function roundToNearest(value: number, step: number): number {
   return Math.round(value / step) * step;
 }
 
-async function hasActiveMarket(assetSymbol: string): Promise<boolean> {
+async function countActiveForAsset(assetSymbol: string): Promise<number> {
   const rows = await query<{ count: string }>(
     `SELECT COUNT(*) AS count FROM markets WHERE asset_symbol = $1 AND status = ANY($2)`,
     [assetSymbol, ACTIVE_STATUSES]
   );
+  return Number(rows[0].count);
+}
+
+/** True when an active market for the asset already closes inside this horizon band. */
+async function hasMarketEndingNear(assetSymbol: string, closeLowMs: number, closeHighMs: number): Promise<boolean> {
+  const rows = await query<{ count: string }>(
+    `SELECT COUNT(*) AS count FROM markets
+     WHERE asset_symbol = $1 AND status = ANY($2)
+       AND betting_closes_at >= $3 AND betting_closes_at <= $4`,
+    [assetSymbol, ACTIVE_STATUSES, new Date(closeLowMs), new Date(closeHighMs)]
+  );
   return Number(rows[0].count) > 0;
+}
+
+async function getSpotPrice(config: AutoMarketConfig): Promise<number> {
+  if (config.source === "stock") {
+    const obs = await stockOracleResolver.getStockObservation(config.feedSymbol);
+    if (obs.isHalted) throw new Error(`${config.feedSymbol} trading halted`);
+    return obs.price;
+  }
+  const observation = await binanceResolver.verifyAndResolve(config.feedSymbol);
+  return observation.price;
 }
 
 export async function ensureAutoMarkets(): Promise<string[]> {
   const created: string[] = [];
+  const now = Date.now();
 
+  // Group per asset so the per-asset cap is enforced once (not per slot).
+  const byAsset = new Map<string, AutoMarketConfig[]>();
   for (const config of AUTO_MARKETS) {
+    const list = byAsset.get(config.assetSymbol) ?? [];
+    list.push(config);
+    byAsset.set(config.assetSymbol, list);
+  }
+
+  for (const [assetSymbol, configs] of byAsset) {
     try {
-      if (await hasActiveMarket(config.assetSymbol)) continue;
+      if (await countActiveForAsset(assetSymbol) >= MAX_ACTIVE_PER_ASSET) continue;
 
-      const observation = await binanceResolver.verifyAndResolve(config.binanceSymbol);
-      const strike = roundToNearest(observation.price, config.roundTo);
+      let spot: number | null = null;
 
-      const now = new Date();
-      const bettingClosesAt = new Date(now.getTime() + config.openForHours * 3_600_000);
-      const resolutionTimestamp = new Date(bettingClosesAt.getTime() + 5 * 60_000);
+      for (const config of configs) {
+        try {
+          const closeLow = now + (config.openForHours - config.bandHours) * 3_600_000;
+          const closeHigh = now + (config.openForHours + config.bandHours) * 3_600_000;
+          if (await hasMarketEndingNear(assetSymbol, closeLow, closeHigh)) continue;
 
-      const id = await createMarket({
-        question: `Will ${config.assetSymbol} be above $${strike.toLocaleString("en-US")} at ${resolutionTimestamp.toUTCString()}?`,
-        assetSymbol: config.assetSymbol,
-        oracleSource: `binance:${config.binanceSymbol}`,
-        strikePrice: strike,
-        comparison: "gt",
-        bettingOpensAt: now,
-        bettingClosesAt,
-        resolutionTimestamp,
-        resolutionWindowSec: 300,
-        protocolFeeBps: 200,
-        minBet: toBaseUnits(1, 6),
-        maxBet: toBaseUnits(5_000, 6),
-      });
+          if (spot === null) spot = await getSpotPrice(config);
+          const strike = roundToNearest(spot, config.roundTo);
+          if (strike <= 0) continue;
 
-      created.push(id);
+          const bettingClosesAt = new Date(now + config.openForHours * 3_600_000);
+          const resolutionTimestamp = new Date(bettingClosesAt.getTime() + 5 * 60_000);
+          const word = config.direction === "above" ? "above" : "below";
+
+          const id = await createMarket({
+            question: `Will ${assetSymbol} be ${word} $${strike.toLocaleString("en-US")} at ${resolutionTimestamp.toUTCString()}?`,
+            assetSymbol,
+            oracleSource: `${config.source}:${config.feedSymbol}`,
+            strikePrice: strike,
+            comparison: config.direction === "above" ? "gt" : "lt",
+            bettingOpensAt: new Date(now),
+            bettingClosesAt,
+            resolutionTimestamp,
+            resolutionWindowSec: 300,
+            protocolFeeBps: 200,
+            minBet: toBaseUnits(1, 6),
+            maxBet: toBaseUnits(5_000, 6),
+          });
+
+          created.push(id);
+        } catch (err) {
+          console.error(`[autoMarket] slot failed for ${assetSymbol} ${config.openForHours}h:`, (err as Error).message);
+        }
+      }
     } catch (err) {
-      console.error(`[autoMarket] failed to auto-create a market for ${config.assetSymbol}:`, (err as Error).message);
+      console.error(`[autoMarket] failed for ${assetSymbol}:`, (err as Error).message);
     }
   }
 

@@ -1,18 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Coin from "@/components/Coin";
 import Countdown from "@/components/Countdown";
-import { ChartSVG } from "@/components/Chart";
+import MarketChart from "@/components/Chart";
 import TradePanel from "@/components/TradePanel";
 import ResultSlip from "@/components/ResultSlip";
 import { SkelDetail } from "@/components/Skeleton";
 import { useWallet } from "@/components/providers";
 import { getMarket, getPaperSummary } from "@/lib/client/api";
 import { collateralToNumber, pct, short, usd } from "@/lib/client/format";
-import type { MarketRow, PositionRow } from "@/lib/client/types";
+import type { MarketRow, PositionRow, BetRow } from "@/lib/client/types";
 
 const COMPARISON_LABEL: Record<string, string> = {
   gt: "greater than (strictly above)",
@@ -21,21 +21,29 @@ const COMPARISON_LABEL: Record<string, string> = {
   lte: "less than or equal to",
 };
 
+function shortAddr(a: string): string {
+  return a ? `${a.slice(0, 6)}…${a.slice(-4)}` : "—";
+}
+
 export default function MarketDetailPage() {
   const params = useParams<{ id: string }>();
   const search = useSearchParams();
+  const router = useRouter();
   const { address } = useWallet();
 
   const [market, setMarket] = useState<MarketRow | null>(null);
   const [positions, setPositions] = useState<PositionRow[]>([]);
+  const [bets, setBets] = useState<BetRow[]>([]);
   const [emissionRate, setEmissionRate] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<"positions" | "bets">("positions");
 
   const load = useCallback(async () => {
     try {
       const data = await getMarket(params.id);
       setMarket(data.market);
-      setPositions(data.positions);
+      setPositions(data.positions ?? []);
+      setBets(data.bets ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load market");
     }
@@ -44,19 +52,41 @@ export default function MarketDetailPage() {
   useEffect(() => {
     load();
     getPaperSummary().then((p) => setEmissionRate(p.currentEmissionRatePerDollar)).catch(() => {});
+    const timer = setInterval(load, 10_000);
+    return () => clearInterval(timer);
   }, [load]);
 
-  if (error) return <p style={{ color: "var(--ink2)" }}>{error}</p>;
-  if (!market) return <SkelDetail />;
+  const derived = useMemo(() => {
+    if (!market) return null;
+    const yes = collateralToNumber(market.yes_pool);
+    const no = collateralToNumber(market.no_pool);
+    const total = yes + no;
+    const p = pct(yes, no);
+    const paysYes = yes > 0 ? 1 + (no * 0.98) / yes : 1;
+    const paysNo = no > 0 ? 1 + (yes * 0.98) / no : 1;
+    return { yes, no, total, p, paysYes, paysNo, open: market.status === "open" };
+  }, [market]);
 
-  const myPosition = positions.find((p) => p.address === address) ?? null;
-  const yes = collateralToNumber(market.yes_pool);
-  const no = collateralToNumber(market.no_pool);
-  const p = pct(yes, no);
-  const open = market.status === "open";
   const initialSide = search.get("side") === "no" ? "no" : "yes";
+  const [selSide, setSelSide] = useState<"yes" | "no">(initialSide);
+  useEffect(() => {
+    setSelSide(initialSide);
+  }, [initialSide]);
 
-  const rules = (
+  if (error) return <p style={{ color: "var(--ink2)" }}>{error}</p>;
+  if (!market || !derived) return <SkelDetail />;
+
+  const { yes, no, p, paysYes, paysNo, open } = derived;
+  const myPosition = positions.find((pos) => pos.address === address) ?? null;
+  const openCount = positions.filter((pos) => collateralToNumber(pos.yes_stake) + collateralToNumber(pos.no_stake) > 0).length;
+
+  function pickSide(side: "yes" | "no") {
+    setSelSide(side);
+    router.replace(`/app/market/${market!.id}?side=${side}`, { scroll: false });
+    document.getElementById("trade-slip")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  const rules: ReactNode = (
     <div className="rules">
       <p>
         <b>Question.</b> {market.question}
@@ -79,12 +109,109 @@ export default function MarketDetailPage() {
     </div>
   );
 
+  const meta = (
+    <div className="mtable">
+      <div>
+        <span>Market ID</span>
+        <b className="mono">{market.id}</b>
+      </div>
+      <div>
+        <span>Oracle feed</span>
+        <b>{market.oracle_source}</b>
+      </div>
+      <div>
+        <span>Protocol fee</span>
+        <b>{(market.protocol_fee_bps / 100).toFixed(1)}% of losing pool</b>
+      </div>
+      <div>
+        <span>Bet bounds</span>
+        <b>
+          {usd(collateralToNumber(market.min_bet), 0)}–{usd(collateralToNumber(market.max_bet), 0)}
+        </b>
+      </div>
+      <div>
+        <span>Betting closes</span>
+        <b>{new Date(market.betting_closes_at).toUTCString()}</b>
+      </div>
+      <div>
+        <span>Resolution window</span>
+        <b>{market.resolution_window_sec}s after {new Date(market.resolution_timestamp).toUTCString()}</b>
+      </div>
+      <div>
+        <span>Created</span>
+        <b>{new Date(market.created_at).toUTCString()}</b>
+      </div>
+    </div>
+  );
+
+  const betsList = (
+    <div className="betlog">
+      {bets.length === 0 ? (
+        <p className="note">No bets recorded yet.</p>
+      ) : (
+        <>
+          {bets
+            .slice()
+            .reverse()
+            .slice(0, 50)
+            .map((b) => (
+              <div className="bl-row" key={b.id}>
+                <span className="bl-time">{new Date(b.created_at).toLocaleTimeString("en-GB", { timeZone: "UTC" })}</span>
+                <span className="bl-addr mono">{shortAddr(b.address)}</span>
+                <span className={"bl-side " + b.side}>{b.side.toUpperCase()}</span>
+                <b className="bl-amt">{usd(collateralToNumber(b.amount), 0)}</b>
+              </div>
+            ))}
+          {bets.length > 50 && <p className="note">+{bets.length - 50} older bets…</p>}
+        </>
+      )}
+    </div>
+  );
+
+  const positionsList = (
+    <table className="pstable">
+      <thead>
+        <tr>
+          <th>Bettor</th>
+          <th>YES</th>
+          <th>NO</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {openCount === 0 ? (
+          <tr>
+            <td colSpan={4}>No positions yet — be the first.</td>
+          </tr>
+        ) : (
+          positions.map((pos) => {
+            const y = collateralToNumber(pos.yes_stake);
+            const n = collateralToNumber(pos.no_stake);
+            if (y + n <= 0) return null;
+            const mine = pos.address === address;
+            return (
+              <tr key={pos.address} style={mine ? { background: "rgba(31,43,163,.06)" } : undefined}>
+                <td>
+                  <span className="mono">{shortAddr(pos.address)}</span>
+                  {mine && <span className="status open" style={{ marginLeft: 8 }}>You</span>}
+                </td>
+                <td style={{ color: y ? "var(--yes)" : undefined }}>{y ? usd(y, 0) : "—"}</td>
+                <td style={{ color: n ? "var(--no)" : undefined }}>{n ? usd(n, 0) : "—"}</td>
+                <td>{usd(y + n, 0)}</td>
+              </tr>
+            );
+          })
+        )}
+      </tbody>
+    </table>
+  );
+
   let side2: ReactNode;
   if (open) {
     side2 = (
       <aside className="trade">
-        <div className="slip" data-side={initialSide}>
-          <TradePanel market={market} myPosition={myPosition} emissionRate={emissionRate} initialSide={initialSide} onChanged={load} />
+        <div className="slip" data-side={selSide} id="trade-slip">
+          <TradePanel market={market} myPosition={myPosition} emissionRate={emissionRate} initialSide={selSide} onSideChange={setSelSide} onChanged={load} />
         </div>
       </aside>
     );
@@ -145,13 +272,13 @@ export default function MarketDetailPage() {
               <h1>{market.question}</h1>
               <div className="meta">
                 <span>
-                  Status <b>{market.status === "open" ? "Open" : market.status === "resolved" ? "Resolved" : market.status === "cancelled" ? "Cancelled" : "Awaiting oracle"}</b>
+                  Status <b>{open ? "Open" : market.status === "resolved" ? "Resolved" : market.status === "cancelled" ? "Cancelled" : "Awaiting oracle"}</b>
                 </span>
                 <span>
                   Strike <b>{usd(Number(market.strike_price), 0)}</b>
                 </span>
                 <span>
-                  Oracle <b>Binance spot price</b>
+                  Oracle <b>{isStockSource(market.oracle_source) ? "Nasdaq tape" : "Binance spot price"}</b>
                 </span>
                 {open && (
                   <span>
@@ -161,24 +288,67 @@ export default function MarketDetailPage() {
               </div>
             </div>
           </div>
+
+          {open && (
+            <div className="oh">
+              <a
+                href="#trade-slip"
+                className={"oh-y" + (selSide === "yes" ? " on" : "")}
+                onClick={(e) => {
+                  e.preventDefault();
+                  pickSide("yes");
+                }}
+              >
+                <span>
+                  <span className="side">YES {p}%</span>
+                  <span className="pays">{usd(yes, 0)} in the pool</span>
+                </span>
+                <span className="paysnum">
+                  pays <b>{paysYes.toFixed(2)}</b>
+                </span>
+              </a>
+              <a
+                href="#trade-slip"
+                className={"oh-n" + (selSide === "no" ? " on" : "")}
+                onClick={(e) => {
+                  e.preventDefault();
+                  pickSide("no");
+                }}
+              >
+                <span>
+                  <span className="side">NO {100 - p}%</span>
+                  <span className="pays">{usd(no, 0)} in the pool</span>
+                </span>
+                <span className="paysnum">
+                  pays <b>{paysNo.toFixed(2)}</b>
+                </span>
+              </a>
+            </div>
+          )}
+
           <div className="blk">
-            <h3>Where the money sits</h3>
-            <div className="big-share">
-              <div className="y">
-                <b>{short(yes)}</b>
-                <small>YES, {p}% of the pool</small>
-              </div>
-              <div className="n">
-                <b>{short(no)}</b>
-                <small>NO, {100 - p}% of the pool</small>
-              </div>
-            </div>
-            <div className="poolbar lg">
-              <i style={{ width: `${p}%` }}></i>
-            </div>
-            <ChartSVG marketId={market.id} yesPct={p} />
-            <p className="note">Pool share shows where money sits. It is not a calibrated probability.</p>
+            <MarketChart market={market} />
+            <p className="note" style={{ marginTop: 10 }}>Pool share shows where money sits. It is not a calibrated probability.</p>
           </div>
+
+          <div className="blk">
+            <h3>Who is in this pool</h3>
+            <div className="dtabs" role="tablist" aria-label="Market participants">
+              <button role="tab" aria-selected={tab === "positions"} className={tab === "positions" ? "on" : ""} onClick={() => setTab("positions")}>
+                Positions <span className="tab-count">{openCount}</span>
+              </button>
+              <button role="tab" aria-selected={tab === "bets"} className={tab === "bets" ? "on" : ""} onClick={() => setTab("bets")}>
+                Bet log <span className="tab-count">{bets.length}</span>
+              </button>
+            </div>
+            {tab === "positions" ? positionsList : betsList}
+          </div>
+
+          <div className="blk">
+            <h3>Market facts</h3>
+            {meta}
+          </div>
+
           <div className="blk">
             <h3>Rules</h3>
             {rules}
@@ -188,4 +358,8 @@ export default function MarketDetailPage() {
       </div>
     </>
   );
+}
+
+function isStockSource(source: string): boolean {
+  return source.startsWith("stock:");
 }

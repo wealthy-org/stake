@@ -1,15 +1,37 @@
 import "./globals.css";
 import { AppProviders } from "@/components/providers";
 
-export const metadata = {
-  title: "Stake",
+import type { Metadata, Viewport } from "next";
+
+export const metadata: Metadata = {
+  title: {
+    default: "Stake · Your call. Your stake.",
+    template: "%s · Stake",
+  },
   description: "Stake. Back your view. Winners take the pool. Verified net losses earn protocol tokens.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.png", type: "image/png", sizes: "64x64" },
+      { url: "/logo.jpeg", type: "image/jpeg" },
+    ],
+    apple: [
+      { url: "/icon.png", sizes: "64x64" },
+    ],
+    shortcut: "/favicon.ico",
+  },
+  openGraph: {
+    title: "Stake · Your call. Your stake.",
+    description: "Stake. Back your view. Winners take the pool. Verified net losses earn protocol tokens.",
+    images: [{ url: "/logo.jpeg" }],
+  },
 };
 
-export const viewport = {
+export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: "#ECEDE7",
 };
 
 // Deliberately no <Header/>, .wrap/.sheet shell, or footer here — the public

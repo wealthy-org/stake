@@ -6,6 +6,8 @@ import "./landing.css";
 import { getStats, getPaperSummary, listMarkets } from "@/lib/client/api";
 import { collateralToNumber, paperToNumber, usd } from "@/lib/client/format";
 import type { ProtocolStats, PaperSummary, MarketRow } from "@/lib/client/types";
+import { DOCS_SECTIONS, DOC_ARTICLES } from "@/lib/client/docsData";
+import MarketRow_ from "@/components/MarketRow";
 
 // Split-flap constants
 const GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$% ";
@@ -17,11 +19,15 @@ function calculatePays(own: number, other: number): string {
 }
 
 export default function LandingPage() {
-  const [activePage, setActivePage] = useState<"home" | "markets" | "how" | "genesis">("home");
+  const [activePage, setActivePage] = useState<"home" | "markets" | "how" | "genesis" | "docs">("home");
+  const [activeDocSlug, setActiveDocSlug] = useState<string>("what-is-stake");
+  const [docsMobileOpen, setDocsMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [stats, setStats] = useState<ProtocolStats | null>(null);
   const [paper, setPaper] = useState<PaperSummary | null>(null);
   const [markets, setMarkets] = useState<MarketRow[]>([]);
+  const [marketTab, setMarketTab] = useState<"open" | "wait" | "done" | "all">("open");
+  const [marketAsset, setMarketAsset] = useState<string>("all");
 
   // Simulation modal state
   const [simMarket, setSimMarket] = useState<{
@@ -51,51 +57,169 @@ export default function LandingPage() {
   // Hero Split-Flap board state
   const [boardIndex, setBoardIndex] = useState(0);
 
-  // Fetch real data on mount
+  // Flattened doc articles for sequential prev / next navigation
+  const allDocArticles = useMemo(
+    () =>
+      DOCS_SECTIONS.flatMap((sec) =>
+        sec.items.map((it) => ({ ...it, section: sec.title }))
+      ),
+    []
+  );
+
+  const currentArticle =
+    DOC_ARTICLES[activeDocSlug] || DOC_ARTICLES["what-is-stake"];
+  const currentDocIndex = allDocArticles.findIndex(
+    (a) => a.slug === currentArticle.slug
+  );
+  const prevDoc =
+    currentDocIndex > 0 ? allDocArticles[currentDocIndex - 1] : null;
+  const nextDoc =
+    currentDocIndex < allDocArticles.length - 1
+      ? allDocArticles[currentDocIndex + 1]
+      : null;
+
+  const selectDocArticle = (slug: string) => {
+    setActiveDocSlug(slug);
+    setDocsMobileOpen(false);
+    window.history.pushState(null, "", `#docs/${slug}`);
+    const el = document.getElementById("docs-article-view");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  // Genesis counter split-flap spinning state
+  const [counterDigits, setCounterDigits] = useState<string[]>(
+    "000,000,000".split("")
+  );
+
   useEffect(() => {
+    if (activePage !== "genesis") return;
+
+    const COUNT = "000,000,000";
+    const DIGITS = "0123456789";
+    setCounterDigits(COUNT.split("").map((c) => (c === "," ? "," : " ")));
+
+    const timers: any[] = [];
+    const baseDelay = 450;
+
+    COUNT.split("").forEach((ch, i) => {
+      if (ch === ",") return;
+
+      const stagger = baseDelay + i * 40;
+      const spins = 4 + Math.round((10 - i) / 2);
+      let count = 0;
+
+      const timeout = setTimeout(() => {
+        const interval = setInterval(() => {
+          count++;
+          if (count >= spins) {
+            clearInterval(interval);
+            setCounterDigits((prev) => {
+              const updated = [...prev];
+              updated[i] = "0";
+              return updated;
+            });
+          } else {
+            const rand = DIGITS[Math.floor(Math.random() * DIGITS.length)];
+            setCounterDigits((prev) => {
+              const updated = [...prev];
+              updated[i] = rand;
+              return updated;
+            });
+          }
+        }, 80);
+        timers.push(interval);
+      }, stagger);
+
+      timers.push(timeout);
+    });
+
+    return () => {
+      timers.forEach((t) => {
+        clearTimeout(t);
+        clearInterval(t);
+      });
+    };
+  }, [activePage]);
+
+  // Fetch real data on mount and poll for real-time updates
+  useEffect(() => {
+    let active = true;
     getStats().then(setStats).catch(() => {});
     getPaperSummary().then(setPaper).catch(() => {});
-    listMarkets().then((data) => {
-      if (data && data.length > 0) setMarkets(data);
-    }).catch(() => {});
+    const fetchMarkets = () => {
+      listMarkets()
+        .then((data) => {
+          if (active && data && data.length > 0) setMarkets(data);
+        })
+        .catch(() => {});
+    };
+    fetchMarkets();
+    const interval = setInterval(fetchMarkets, 10000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
   }, []);
 
-  // Sync hash routing if user comes with #markets, #how, #genesis
+  // Sync hash routing if user comes with #markets, #how, #genesis, #docs
   useEffect(() => {
-    const hash = window.location.hash.slice(1) as any;
-    if (["home", "markets", "how", "genesis"].includes(hash)) {
-      setActivePage(hash);
-    }
-    const onHashChange = () => {
-      const h = window.location.hash.slice(1) as any;
-      if (["home", "markets", "how", "genesis"].includes(h)) {
-        setActivePage(h);
+    const handleHash = (rawHash: string) => {
+      const h = rawHash.slice(1);
+      if (h.startsWith("docs")) {
+        setActivePage("docs");
+        const parts = h.split("/");
+        if (parts[1] && DOC_ARTICLES[parts[1]]) {
+          setActiveDocSlug(parts[1]);
+        }
+      } else if (["home", "markets", "how", "genesis", "docs"].includes(h)) {
+        setActivePage(h as any);
       }
     };
+
+    handleHash(window.location.hash);
+    const onHashChange = () => handleHash(window.location.hash);
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
+  // Update document title per active section matching reference design
+  useEffect(() => {
+    const docTitles: Record<string, string> = {
+      home: "Your call. Your stake.",
+      markets: "Take a side.",
+      how: "Two outcomes. A new stake.",
+      genesis: "Supply starts with you.",
+      docs: "Documentation",
+    };
+    document.title = `Stake · ${docTitles[activePage] || "Your call. Your stake."}`;
+  }, [activePage]);
+
   // Handle smooth page navigation with transition flipover
-  const navigateTo = (page: "home" | "markets" | "how" | "genesis") => {
+  const navigateTo = (page: "home" | "markets" | "how" | "genesis" | "docs") => {
     if (page === activePage) return;
     setMenuOpen(false);
 
-    const labels = {
+    const labels: Record<string, string> = {
       home: "00 / Home",
       markets: "01 / Markets",
       how: "02 / How it works",
       genesis: "03 / Genesis",
+      docs: "04 / Documentation",
     };
-    const words = {
+    const words: Record<string, string> = {
       home: "STAKE",
       markets: "MARKETS",
       how: "HOW IT WORKS",
       genesis: "GENESIS",
+      docs: "DOCS",
     };
 
-    setTransitionLabel(labels[page]);
-    setTransitionWord(words[page]);
+    setTransitionLabel(labels[page] || "00 / Home");
+    setTransitionWord(words[page] || "STAKE");
     setIsTransitioning(true);
 
     setTimeout(() => {
@@ -109,19 +233,42 @@ export default function LandingPage() {
     }, 850);
   };
 
-  // Derive pools for tote board & markets table
+  // Compute counts and filtered markets for the Markets section
+  const marketCounts = useMemo(() => {
+    return {
+      all: markets.length,
+      open: markets.filter((m) => m.status === "open").length,
+      wait: markets.filter((m) => m.status === "locked" || m.status === "resolution_pending").length,
+      done: markets.filter((m) => m.status === "resolved" || m.status === "cancelled").length,
+    };
+  }, [markets]);
+
+  const filteredLandingMarkets = useMemo(() => {
+    if (!markets || markets.length === 0) return [];
+    return markets.filter((m) => {
+      const tabOk =
+        marketTab === "all" ? true :
+        marketTab === "open" ? m.status === "open" :
+        marketTab === "wait" ? m.status === "locked" || m.status === "resolution_pending" :
+        m.status === "resolved" || m.status === "cancelled";
+      const assetOk = marketAsset === "all" || m.asset_symbol === marketAsset;
+      return tabOk && assetOk;
+    });
+  }, [markets, marketTab, marketAsset]);
+
+  // Derive pools for tote board & fallback
   // Use real open markets if available, else standard fallback
   const displayMarkets = useMemo(() => {
     if (markets && markets.length > 0) {
       const openOnes = markets.filter((m) => m.status === "open");
       const list = openOnes.length >= 3 ? openOnes : markets;
-      return list.slice(0, 4).map((m, idx) => {
+      return list.map((m) => {
         const yesVal = collateralToNumber(m.yes_pool);
         const noVal = collateralToNumber(m.no_pool);
         const yes = yesVal > 0 ? yesVal : 50000;
         const no = noVal > 0 ? noVal : 50000;
         return {
-          id: String(idx + 1).padStart(3, "0"),
+          id: m.id.slice(-3).toUpperCase(),
           marketId: m.id,
           asset: m.asset_symbol,
           question: m.question,
@@ -138,7 +285,7 @@ export default function LandingPage() {
 
     return [
       {
-        id: "001",
+        id: "ETH",
         marketId: "eth",
         asset: "ETH",
         question: "ETH above $5,000?",
@@ -151,7 +298,7 @@ export default function LandingPage() {
         paysNo: calculatePays(40000, 60000),
       },
       {
-        id: "002",
+        id: "BTC",
         marketId: "btc",
         asset: "BTC",
         question: "BTC above $150,000?",
@@ -164,7 +311,7 @@ export default function LandingPage() {
         paysNo: calculatePays(55000, 45000),
       },
       {
-        id: "003",
+        id: "SOL",
         marketId: "sol",
         asset: "SOL",
         question: "SOL above $300?",
@@ -175,6 +322,19 @@ export default function LandingPage() {
         noPct: 48,
         paysYes: calculatePays(52000, 48000),
         paysNo: calculatePays(48000, 52000),
+      },
+      {
+        id: "NVD",
+        marketId: "nvda",
+        asset: "NVDA",
+        question: "NVDA above $200?",
+        yes: 70000,
+        no: 30000,
+        total: 100000,
+        yesPct: 70,
+        noPct: 30,
+        paysYes: calculatePays(70000, 30000),
+        paysNo: calculatePays(30000, 70000),
       },
     ];
   }, [markets]);
@@ -210,7 +370,11 @@ export default function LandingPage() {
             aria-label="Stake home"
             style={{ border: 0, background: "none", cursor: "pointer", padding: 0 }}
           >
-            <span className="logo-tag" aria-hidden="true"></span>
+            <img
+              src="/logo.jpeg"
+              alt="Stake"
+              className="logo-img"
+            />
             Stake
           </button>
 
@@ -233,12 +397,18 @@ export default function LandingPage() {
             >
               Genesis
             </button>
+            <button
+              onClick={() => navigateTo("docs")}
+              aria-current={activePage === "docs" ? "page" : undefined}
+            >
+              Docs
+            </button>
           </nav>
 
           <div className="top-end">
-            <span className="preview">Robinhood Chain 46630</span>
+            <span className="preview">Concept preview</span>
             <Link className="landing-btn sm" href="/app">
-              <span className="btn-label">Launch App</span>
+              <span className="btn-label">Take a side</span>
               <span className="arr" aria-hidden="true">→</span>
             </Link>
             <button
@@ -262,7 +432,7 @@ export default function LandingPage() {
           <section className="landing-page entered" id="home" aria-label="Stake introduction">
             <div className="kicker">
               <b>A stake in every outcome.</b>
-              <span>Robinhood Chain / Live Testnet</span>
+              <span>Robinhood Chain / Independent project</span>
             </div>
 
             <div className="landing-hero">
@@ -281,9 +451,9 @@ export default function LandingPage() {
                   Back <b>YES</b> or <b>NO</b>. Winners take the pool. Net losses earn protocol tokens.
                 </p>
                 <div className="actions rise" style={{ "--d": "340ms" } as any}>
-                  <button className="landing-btn" onClick={() => navigateTo("markets")}>
+                  <Link className="landing-btn" href="/app">
                     <span>Pick your side</span> <span className="arr" aria-hidden="true">→</span>
-                  </button>
+                  </Link>
                   <button className="landing-link" onClick={() => navigateTo("how")}>
                     How it works
                   </button>
@@ -404,10 +574,10 @@ export default function LandingPage() {
 
         {/* ── SECTION: MARKETS ── */}
         {activePage === "markets" && (
-          <section className="landing-page entered" id="markets" aria-label="Illustrative markets">
+          <section className="landing-page entered" id="markets" aria-label="Prediction markets">
             <div className="kicker">
-              <b>Markets</b>
-              <span>Active Pools · Robinhood Chain</span>
+              <b>01 / Markets</b>
+              <span>Live prediction pools · Robinhood Chain testnet · {markets.length} total</span>
             </div>
             <div className="head">
               <h1 className="title" tabIndex={-1}>
@@ -421,8 +591,52 @@ export default function LandingPage() {
                 </span>
               </h1>
               <p className="lede rise" style={{ "--d": "220ms" } as any}>
-                One question. Two sides. Try an outcome below.
+                One question. Two sides. Back YES or NO with live contract liquidity.
               </p>
+            </div>
+
+            {/* ── Modern Control & Filter Panel ── */}
+            <div className="mkt-control-bar rise" style={{ "--d": "240ms", marginBottom: 24 } as any}>
+              {/* Row 1: Status segmented control */}
+              <div className="mkt-top-row">
+                <div className="mkt-status-tabs" role="tablist" aria-label="Market status">
+                  {[
+                    ["open", "Open"],
+                    ["wait", "Awaiting result"],
+                    ["done", "Resolved"],
+                    ["all", "All"],
+                  ].map(([k, label]) => (
+                    <button
+                      key={k}
+                      role="tab"
+                      aria-selected={marketTab === k}
+                      className={`status-tab ${marketTab === k ? "active" : ""}`}
+                      onClick={() => setMarketTab(k as any)}
+                    >
+                      <span>{label}</span>
+                      {markets.length > 0 && (
+                        <span className="tab-pill">{marketCounts[k as keyof typeof marketCounts]}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Row 2: Asset filter pills */}
+              <div className="mkt-asset-row">
+                <span className="asset-label">Asset:</span>
+                <div className="mkt-asset-chips">
+                  {["all", "ETH", "BTC", "SOL", "NVDA", "AAPL", "TSLA"].map((k) => (
+                    <button
+                      key={k}
+                      className={`asset-chip ${marketAsset === k ? "active" : ""}`}
+                      onClick={() => setMarketAsset(k)}
+                    >
+                      {k === "all" ? "All assets" : k}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="tote">
@@ -433,80 +647,72 @@ export default function LandingPage() {
                 <span>Take a side · pays per $1</span>
               </div>
 
-              {displayMarkets.map((m, idx) => (
-                <article key={m.id} className="landing-row rise" style={{ "--d": `${260 + idx * 70}ms` } as any}>
-                  <div className="pno">
-                    <b>{m.id}</b>
-                    <span>{m.asset} / USD</span>
-                  </div>
-                  <h2 className="landing-q">{m.question}</h2>
-                  <div className="pool">
-                    <div className="pool-nums">
-                      <span>${m.yes.toLocaleString()}<i>YES</i></span>
-                      <span>${m.no.toLocaleString()}<i>NO</i></span>
+              {filteredLandingMarkets.length > 0 ? (
+                filteredLandingMarkets.map((m) => (
+                  <MarketRow_ key={m.id} market={m} />
+                ))
+              ) : markets.length === 0 ? (
+                displayMarkets.slice(0, 4).map((m) => (
+                  <article key={m.id} className="landing-row">
+                    <div className="pno">
+                      <b>{m.id}</b>
+                      <span>{m.asset} / USD</span>
                     </div>
-                    <div className="landing-split">
-                      <span className="y" style={{ "--w": `${m.yesPct}%` } as any} />
-                      <span className="n" />
+                    <h2 className="landing-q">
+                      <Link href="/app/markets">{m.question}</Link>
+                    </h2>
+                    <div className="pool">
+                      <div className="pool-nums">
+                        <span>${m.yes.toLocaleString()}<i>YES</i></span>
+                        <span>${m.no.toLocaleString()}<i>NO</i></span>
+                      </div>
+                      <div className="landing-split">
+                        <span className="y" style={{ "--w": `${m.yesPct}%` } as any} />
+                        <span className="n" />
+                      </div>
+                      <div className="pool-pct">
+                        <span>{m.yesPct}%</span>
+                        <span>{m.noPct}%</span>
+                      </div>
                     </div>
-                    <div className="pool-pct">
-                      <span>{m.yesPct}%</span>
-                      <span>{m.noPct}%</span>
+                    <div className="take">
+                      <Link className="pick yes" href={`/app/market/${m.marketId}?side=yes`}>
+                        <span className="pick-side">YES</span>
+                        <span className="pick-pays">pays <b>{m.paysYes}</b></span>
+                        <span className="arr" aria-hidden="true">→</span>
+                      </Link>
+                      <Link className="pick no" href={`/app/market/${m.marketId}?side=no`}>
+                        <span className="pick-side">NO</span>
+                        <span className="pick-pays">pays <b>{m.paysNo}</b></span>
+                        <span className="arr" aria-hidden="true">→</span>
+                      </Link>
                     </div>
-                  </div>
-                  <div className="take">
-                    <button
-                      className="pick yes"
-                      onClick={() => {
-                        setSimMarket({
-                          id: m.id,
-                          question: m.question,
-                          asset: m.asset,
-                          yes: m.yes,
-                          no: m.no,
-                        });
-                        setSimSide("yes");
-                        setSimWon(true);
-                        setMarketDialogOpen(true);
-                      }}
-                      aria-label={`Simulate YES on ${m.question}`}
-                    >
-                      <span className="pick-side">YES</span>
-                      <span className="pick-pays">pays <b>{m.paysYes}</b></span>
-                      <span className="arr" aria-hidden="true">→</span>
-                    </button>
-                    <button
-                      className="pick no"
-                      onClick={() => {
-                        setSimMarket({
-                          id: m.id,
-                          question: m.question,
-                          asset: m.asset,
-                          yes: m.yes,
-                          no: m.no,
-                        });
-                        setSimSide("no");
-                        setSimWon(true);
-                        setMarketDialogOpen(true);
-                      }}
-                      aria-label={`Simulate NO on ${m.question}`}
-                    >
-                      <span className="pick-side">NO</span>
-                      <span className="pick-pays">pays <b>{m.paysNo}</b></span>
-                      <span className="arr" aria-hidden="true">→</span>
-                    </button>
-                  </div>
-                </article>
-              ))}
+                  </article>
+                ))
+              ) : (
+                <div className="empty" style={{ gridColumn: "1 / -1", margin: "20px 0" }}>
+                  <h3>No markets matching filter</h3>
+                  <p>Try switching the asset or status filter above.</p>
+                </div>
+              )}
             </div>
 
-            <p className="footnote rise" style={{ "--d": "460ms" } as any}>
-              Pool shares are determined by total wagers, not external probabilities. Final payouts depend on the pools at cutoff.
-              &ldquo;Pays&rdquo; is the return per $1 at the current pools, stake included, after an example 2% fee on the losing pool.
+            {markets.length > 0 && (
+              <div className="board-more" style={{ marginTop: 24, textAlign: "center" }}>
+                <Link href="/app/markets" className="landing-btn sm" style={{ padding: "0 28px" }}>
+                  <span>Browse all {markets.length} markets in App</span>
+                  <span className="arr" aria-hidden="true">→</span>
+                </Link>
+              </div>
+            )}
+
+            <p className="footnote rise" style={{ "--d": "460ms", marginTop: 24 } as any}>
+              Real liquidity on Robinhood Chain Testnet. Payouts depend on pool sizes at cutoff.
+              &ldquo;Pays&rdquo; is the proportional return per $1 staked, including returned stake, after 2% protocol fee on the losing pool.
             </p>
 
             <div className="page-foot">
-              <span>Interactive preview on Robinhood Chain Testnet.</span>
+              <span>Verified oracle prices. Deterministic settlement.</span>
               <button className="next" onClick={() => navigateTo("how")}>
                 What happens next <span className="arr" aria-hidden="true">→</span>
               </button>
@@ -545,7 +751,7 @@ export default function LandingPage() {
                     <div className="ticket">
                       <div className="t-head">
                         <span>Stake · pool ticket</span>
-                        <span>No. 001</span>
+                        <span>No. 000184</span>
                       </div>
                       <div className="t-row">
                         <span>Pool</span><i /><b>001 ETH/USD &gt; $5,000</b>
@@ -566,14 +772,14 @@ export default function LandingPage() {
                       </div>
                       <div className="barcode" />
                       <div className="t-foot">Settled by oracle price</div>
-                      <div className="landing-stamp win">Paid<small>$165.22</small></div>
+                      <div className="stamp win">Paid<small>$165.22</small></div>
                     </div>
                   </div>
                 </div>
                 <div className="out-copy">
                   <h2>Right call.<span>Real payout.</span></h2>
-                  <p>Your stake back, plus your proportional share of the losing pool after protocol fees.</p>
-                  <div className="out-foot">Funded directly by the opposing pool</div>
+                  <p>Your stake back, plus your share of the losing pool after fees.</p>
+                  <div className="out-foot">Funded by the opposing pool</div>
                 </div>
               </article>
 
@@ -584,7 +790,7 @@ export default function LandingPage() {
                     <div className="ticket">
                       <div className="t-head">
                         <span>Stake · pool ticket</span>
-                        <span>No. 002</span>
+                        <span>No. 000185</span>
                       </div>
                       <div className="t-row">
                         <span>Pool</span><i /><b>001 ETH/USD &gt; $5,000</b>
@@ -605,14 +811,14 @@ export default function LandingPage() {
                       </div>
                       <div className="barcode" />
                       <div className="t-foot">Net loss recorded</div>
-                      <div className="landing-stamp loss">Net loss<small>Token eligible</small></div>
+                      <div className="stamp loss">Net loss<small>Token eligible</small></div>
                     </div>
                   </div>
                 </div>
                 <div className="out-copy">
                   <h2>Wrong call.<span>A new stake.</span></h2>
-                  <p>Your net loss determines your protocol-token emissions via piecewise non-dilutive minting.</p>
-                  <div className="out-foot">Verified net loss → $STAKE token eligibility</div>
+                  <p>Your net loss determines your protocol-token emissions.</p>
+                  <div className="out-foot">Verified net loss → token eligibility</div>
                 </div>
               </article>
             </div>
@@ -621,23 +827,23 @@ export default function LandingPage() {
               <div className="step">
                 <b>1</b>
                 <strong>Predict</strong>
-                <span>Back YES or NO before market cutoff.</span>
+                <span>Back YES or NO before cutoff.</span>
               </div>
               <div className="step">
                 <b>2</b>
                 <strong>Settle</strong>
-                <span>A verified oracle price resolves the outcome deterministically.</span>
+                <span>A verified oracle price decides the outcome.</span>
               </div>
               <div className="step">
                 <b>3</b>
                 <strong>Claim</strong>
-                <span>Payouts and token claims are settled individually via smart contract.</span>
+                <span>Payouts and token eligibility are claimed individually.</span>
               </div>
             </div>
 
             <div className="notice rise" style={{ "--d": "480ms" } as any}>
               <p>
-                Lost collateral stays lost. Tokens have no guaranteed monetary value. &ldquo;Ownership&rdquo; describes token distribution; holder rights are not finalized.
+                Lost collateral stays lost. Tokens have no guaranteed value. &ldquo;Ownership&rdquo; describes token distribution; holder rights are not finalized.
               </p>
               <button className="landing-link" onClick={() => setNotesDialogOpen(true)}>
                 Read the rules
@@ -658,7 +864,7 @@ export default function LandingPage() {
           <section className="landing-page entered" id="genesis" aria-label="Token genesis">
             <div className="kicker">
               <b>Genesis</b>
-              <span>Zero-Premint Tokenomics</span>
+              <span>Proposed launch design</span>
             </div>
             <div className="gen">
               <div>
@@ -673,7 +879,7 @@ export default function LandingPage() {
                   </span>
                 </h1>
                 <p className="lede rise" style={{ "--d": "240ms" } as any}>
-                  No premint. No insider head start. Verified net losses create new tokens.
+                  No premint. No insider head start. Verified losses create new tokens.
                 </p>
 
                 <dl className="landing-ledger rise" style={{ "--d": "300ms" } as any}>
@@ -689,18 +895,6 @@ export default function LandingPage() {
                   <div>
                     <dt>New supply</dt><i /><dd>Minted against verified losses</dd>
                   </div>
-                  {paper && (
-                    <div>
-                      <dt>Total STAKE minted</dt><i />
-                      <dd>{Math.round(paperToNumber(paper.supply)).toLocaleString()} STAKE</dd>
-                    </div>
-                  )}
-                  {stats && (
-                    <div>
-                      <dt>Protocol net losses</dt><i />
-                      <dd>{usd(collateralToNumber(stats.realizedNetLosses))}</dd>
-                    </div>
-                  )}
                 </dl>
 
                 <button
@@ -720,10 +914,10 @@ export default function LandingPage() {
                       <span><i className="lamp" />Genesis</span>
                     </div>
                     <div className="flaps" id="counter">
-                      {"000,000,000".split("").map((ch, idx) => (
+                      {counterDigits.map((ch, idx) => (
                         <span key={idx} className="cell">
-                          <span className="t"><b>{ch}</b></span>
-                          <span className="b"><b>{ch}</b></span>
+                          <span className="t"><b>{ch === " " ? "\u00A0" : ch}</b></span>
+                          <span className="b"><b>{ch === " " ? "\u00A0" : ch}</b></span>
                         </span>
                       ))}
                     </div>
@@ -737,10 +931,195 @@ export default function LandingPage() {
             </div>
 
             <div className="page-foot">
-              <span>Emission curve, token rights and transfer rules on Robinhood Chain.</span>
-              <button className="next" onClick={() => navigateTo("markets")}>
-                Back your view <span className="arr" aria-hidden="true">→</span>
+              <span>Emission curve, token rights and transfer rules remain open.</span>
+              <button className="next" onClick={() => navigateTo("docs")}>
+                Protocol documentation <span className="arr" aria-hidden="true">→</span>
               </button>
+            </div>
+          </section>
+        )}
+
+        {/* ── SECTION: DOCS (docs.papertrade.xyz style) ── */}
+        {activePage === "docs" && (
+          <section className="landing-page entered" id="docs" aria-label="Documentation">
+            <div className="kicker">
+              <b>04 / Documentation</b>
+              <span>Protocol Architecture & Developer Reference</span>
+            </div>
+
+            <div className="docs-shell" id="docs-article-view">
+              {/* Mobile Sidebar Toggle Button */}
+              <button
+                className="sidebar-toggle"
+                onClick={() => setDocsMobileOpen(!docsMobileOpen)}
+                aria-expanded={docsMobileOpen}
+              >
+                <span>Menu: {currentArticle.title}</span>
+                <span>{docsMobileOpen ? "▲ Hide" : "▼ Topics"}</span>
+              </button>
+
+              {/* Left Column: Navigation Sidebar */}
+              <aside className={`sidebar-col ${docsMobileOpen ? "" : "is-collapsed"}`} aria-label="Documentation navigation">
+                {DOCS_SECTIONS.map((sec) => (
+                  <div key={sec.title} className="sidebar-section">
+                    <div className="sidebar-head">{sec.title}</div>
+                    <ul className="sidebar-list">
+                      {sec.items.map((item) => (
+                        <li key={item.slug}>
+                          <button
+                            type="button"
+                            className={activeDocSlug === item.slug ? "active" : ""}
+                            onClick={() => selectDocArticle(item.slug)}
+                          >
+                            {item.title}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </aside>
+
+              {/* Center Column: Article */}
+              <article className="article-col docs-article">
+                <div className="docs-breadcrumb" aria-label="Breadcrumb">
+                  <span style={{ cursor: "pointer" }} onClick={() => navigateTo("home")}>Stake</span>
+                  <span className="sep">/</span>
+                  <span>{currentArticle.section}</span>
+                  <span className="sep">/</span>
+                  <span style={{ color: "var(--ink)" }}>{currentArticle.title}</span>
+                </div>
+
+                <span className="eyebrow">{currentArticle.section}</span>
+                <h1>{currentArticle.title}</h1>
+                <p className="lead">{currentArticle.lead}</p>
+
+                <div className="article-body">
+                  {currentArticle.content.map((block, idx) => {
+                    if (block.type === "h2") {
+                      return (
+                        <h2 key={idx} id={block.id}>
+                          {block.text}
+                        </h2>
+                      );
+                    }
+                    if (block.type === "h3") {
+                      return (
+                        <h3 key={idx} id={block.id}>
+                          {block.text}
+                        </h3>
+                      );
+                    }
+                    if (block.type === "p") {
+                      return <p key={idx}>{block.text}</p>;
+                    }
+                    if (block.type === "list") {
+                      return (
+                        <ul key={idx}>
+                          {block.items?.map((item, i) => (
+                            <li key={i}>{item}</li>
+                          ))}
+                        </ul>
+                      );
+                    }
+                    if (block.type === "callout") {
+                      return (
+                        <div key={idx} className={`callout ${block.calloutType || ""}`}>
+                          {block.calloutHead && (
+                            <div className="callout-head">{block.calloutHead}</div>
+                          )}
+                          <p style={{ margin: 0 }}>{block.text}</p>
+                        </div>
+                      );
+                    }
+                    if (block.type === "code") {
+                      return (
+                        <pre key={idx}>
+                          <code>{block.codeContent}</code>
+                        </pre>
+                      );
+                    }
+                    if (block.type === "table") {
+                      return (
+                        <table key={idx}>
+                          {block.tableHeaders && (
+                            <thead>
+                              <tr>
+                                {block.tableHeaders.map((h, i) => (
+                                  <th key={i}>{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                          )}
+                          <tbody>
+                            {block.tableRows?.map((row, rIdx) => (
+                              <tr key={rIdx}>
+                                {row.map((cell, cIdx) => (
+                                  <td key={cIdx}>{cell}</td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+
+                {/* Article Pager */}
+                <nav className="docs-nav-pager" aria-label="Documentation pager">
+                  {prevDoc ? (
+                    <button
+                      type="button"
+                      className="docs-pager-btn prev"
+                      onClick={() => selectDocArticle(prevDoc.slug)}
+                    >
+                      <div className="label">← Previous</div>
+                      <div className="title">{prevDoc.title}</div>
+                    </button>
+                  ) : (
+                    <div />
+                  )}
+                  {nextDoc && (
+                    <button
+                      type="button"
+                      className="docs-pager-btn next"
+                      onClick={() => selectDocArticle(nextDoc.slug)}
+                    >
+                      <div className="label">Next →</div>
+                      <div className="title">{nextDoc.title}</div>
+                    </button>
+                  )}
+                </nav>
+
+                <div className="page-foot" style={{ marginTop: 48, paddingBottom: 0, borderBottom: "none" }}>
+                  <span>Deploy and trade native markets on Robinhood Chain.</span>
+                  <Link className="next" href="/app">
+                    Launch App <span className="arr" aria-hidden="true">→</span>
+                  </Link>
+                </div>
+              </article>
+
+              {/* Right Column: Table of Contents */}
+              <aside className="toc-col" aria-label="Table of contents">
+                <div className="toc-head">On this page</div>
+                <ul className="toc-list">
+                  {currentArticle.headings.map((h) => (
+                    <li key={h.id}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const el = document.getElementById(h.id);
+                          if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                        }}
+                      >
+                        {h.title}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </aside>
             </div>
           </section>
         )}
@@ -748,8 +1127,11 @@ export default function LandingPage() {
 
       {/* ── FOOTER ── */}
       <footer className="site-foot">
-        <span>STAKE MARKET · ROBINHOOD CHAIN TESTNET (ID: 46630)</span>
-        <button onClick={() => setNotesDialogOpen(true)}>Protocol notes ↗</button>
+        <span>STAKE MARKET · INTERACTIVE PREVIEW · NO REAL FUNDS</span>
+        <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+          <button onClick={() => navigateTo("docs")}>Documentation</button>
+          <button onClick={() => setNotesDialogOpen(true)}>Protocol notes ↗</button>
+        </div>
       </footer>
 
       {/* ── TRANSITION OVERLAY ── */}

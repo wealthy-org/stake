@@ -5,8 +5,20 @@ import { WagmiProvider, useAccount, useConnect, useDisconnect, useSwitchChain } 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { wagmiConfig } from "@/lib/web3/wagmi";
 import { robinhoodTestnet } from "@/lib/web3/chains";
-import { getWallet } from "@/lib/client/api";
+import { getWallet, faucet } from "@/lib/client/api";
 import type { WalletSummary } from "@/lib/client/types";
+
+const ROBINHOOD_CHAIN_PARAMS = {
+  chainId: "0xb626", // 46630 in hex
+  chainName: "Robinhood Chain Testnet",
+  nativeCurrency: {
+    name: "Ether",
+    symbol: "ETH",
+    decimals: 18,
+  },
+  rpcUrls: ["https://rpc.testnet.chain.robinhood.com"],
+  blockExplorerUrls: ["https://explorer.testnet.chain.robinhood.com"],
+};
 
 /* ---------------- toast ---------------- */
 
@@ -108,22 +120,59 @@ function WalletInnerProvider({ children }: { children: React.ReactNode }) {
 
   async function connectInjected() {
     try {
+      if (typeof window === "undefined") return;
+
+      const hasEthereum = typeof (window as any).ethereum !== "undefined";
       const injectedConnector = connectors.find((c) => c.type === "injected") || connectors[0];
-      if (!injectedConnector) {
-        showToast("No browser wallet found — use a test address instead");
+
+      if (!hasEthereum || !injectedConnector) {
+        showToast("No Web3 wallet detected — using a generated test address instead");
+        connectTestAddress();
         return;
       }
+
+      // 1. Connect without strictly forcing chain upfront
       await connectAsync({
         connector: injectedConnector,
-        chainId: robinhoodTestnet.id,
       });
+
       setTestAddress(null);
       try {
         localStorage.removeItem("pb-test-address");
       } catch {}
-      showToast("Connected to Robinhood Chain Testnet");
+
+      // 2. Attempt chain switch / add
+      try {
+        await switchChainAsync({ chainId: robinhoodTestnet.id });
+        showToast("Connected to Robinhood Chain Testnet");
+      } catch (switchErr: any) {
+        console.warn("Chain switch note:", switchErr);
+        if (
+          switchErr?.code === 4902 ||
+          switchErr?.message?.toLowerCase().includes("unrecognized") ||
+          switchErr?.message?.toLowerCase().includes("not added")
+        ) {
+          try {
+            await (window as any).ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [ROBINHOOD_CHAIN_PARAMS],
+            });
+            showToast("Added and connected to Robinhood Chain Testnet");
+          } catch {
+            showToast("Connected! Switch wallet to Robinhood Chain (46630)");
+          }
+        } else {
+          showToast("Connected! Switch wallet to Robinhood Chain (46630)");
+        }
+      }
     } catch (err: any) {
-      showToast(err?.message || "Wallet connection was cancelled");
+      console.error("connectInjected error:", err);
+      if (err?.message?.toLowerCase().includes("rejected") || err?.message?.toLowerCase().includes("user rejected")) {
+        showToast("Wallet connection was cancelled");
+      } else {
+        showToast(err?.message || "Wallet connection error. Using test key instead.");
+        connectTestAddress();
+      }
     }
   }
 
@@ -136,7 +185,11 @@ function WalletInnerProvider({ children }: { children: React.ReactNode }) {
     if (isConnected) {
       disconnectAsync().catch(() => {});
     }
-    showToast("Using a generated test address — no real funds involved");
+    // Auto-fund test address with $1,000 virtual balance so user can test immediately!
+    faucet(addr, "1000000000")
+      .then(() => refresh())
+      .catch(() => {});
+    showToast("Connected with test address + $1,000 virtual balance!");
   }
 
   async function disconnect() {
@@ -156,6 +209,23 @@ function WalletInnerProvider({ children }: { children: React.ReactNode }) {
       await switchChainAsync({ chainId: robinhoodTestnet.id });
       showToast("Switched to Robinhood Chain Testnet");
     } catch (err: any) {
+      if (
+        err?.code === 4902 ||
+        err?.message?.toLowerCase().includes("unrecognized") ||
+        err?.message?.toLowerCase().includes("not added")
+      ) {
+        try {
+          await (window as any).ethereum?.request?.({
+            method: "wallet_addEthereumChain",
+            params: [ROBINHOOD_CHAIN_PARAMS],
+          });
+          showToast("Added and switched to Robinhood Chain Testnet");
+          return;
+        } catch (addErr: any) {
+          showToast(addErr?.message || "Failed to add chain");
+          return;
+        }
+      }
       showToast(err?.message || "Failed to switch chain");
     }
   }
