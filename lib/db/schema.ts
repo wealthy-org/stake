@@ -136,7 +136,16 @@ export function ensureSchema(): Promise<void> {
       // that entirely.
       const { startWorker } = await import("../worker/scheduler");
       await startWorker();
-    })();
+    })().catch((err) => {
+      // A rejected promise stays rejected forever — without this, one
+      // transient dropped connection during setup (Neon closes idle
+      // sockets without warning) would permanently wedge every route on
+      // this process, since every future call just re-awaits the same
+      // cached rejection instead of retrying. Clear it so the next call
+      // gets a fresh attempt.
+      initialized = null;
+      throw err;
+    });
   }
   return initialized;
 }

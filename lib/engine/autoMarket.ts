@@ -100,58 +100,77 @@ export async function ensureAutoMarkets(): Promise<string[]> {
     // Multiple serverless instances can each run their own worker tick
     // concurrently (no single long-lived process on Vercel), so a plain
     // check-then-insert races: several instances see "no market yet" for
-    // the same slot at once and all create an identical duplicate. A
-    // Postgres advisory lock, keyed per asset, serializes that section
-    // across every instance sharing the same database.
+    // the same slot at once and all create an identical duplicate.
+    //
+    // A session-scoped pg_advisory_lock/unlock pair looked like the fix,
+    // but it isn't: if two ticks ever acquire per-asset locks in a
+    // different order, Postgres detects the deadlock and kills one side
+    // mid-flight, before its unlock statement runs. That connection then
+    // goes back to the pool still holding the lock forever — the next
+    // request to touch that asset hangs until the client-side timeout,
+    // every single time, since nothing ever unlocks it again.
+    //
+    // pg_advisory_xact_lock has no such failure mode: it's released the
+    // instant this transaction ends, via COMMIT or ROLLBACK, no matter
+    // how we get there — including the deadlock killer itself, which acts
+    // like an automatic ROLLBACK. There is no code path that leaks it.
     const lockClient = await getPool().connect();
+    let brokenConnection = false;
     try {
-      await lockClient.query("SELECT pg_advisory_lock(hashtext($1))", [assetSymbol]);
+      await lockClient.query("BEGIN");
       try {
-        if (await countActiveForAsset(assetSymbol) >= MAX_ACTIVE_PER_ASSET) continue;
+        await lockClient.query("SELECT pg_advisory_xact_lock(hashtext($1))", [assetSymbol]);
 
-        let spot: number | null = null;
+        if (!((await countActiveForAsset(assetSymbol)) >= MAX_ACTIVE_PER_ASSET)) {
+          let spot: number | null = null;
 
-        for (const config of configs) {
-          try {
-            const closeLow = now + (config.openForHours - config.bandHours) * 3_600_000;
-            const closeHigh = now + (config.openForHours + config.bandHours) * 3_600_000;
-            if (await hasMarketEndingNear(assetSymbol, closeLow, closeHigh)) continue;
+          for (const config of configs) {
+            try {
+              const closeLow = now + (config.openForHours - config.bandHours) * 3_600_000;
+              const closeHigh = now + (config.openForHours + config.bandHours) * 3_600_000;
+              if (await hasMarketEndingNear(assetSymbol, closeLow, closeHigh)) continue;
 
-            if (spot === null) spot = await getSpotPrice(config);
-            const strike = roundToNearest(spot, config.roundTo);
-            if (strike <= 0) continue;
+              if (spot === null) spot = await getSpotPrice(config);
+              const strike = roundToNearest(spot, config.roundTo);
+              if (strike <= 0) continue;
 
-            const bettingClosesAt = new Date(now + config.openForHours * 3_600_000);
-            const resolutionTimestamp = new Date(bettingClosesAt.getTime() + 5 * 60_000);
-            const word = config.direction === "above" ? "above" : "below";
+              const bettingClosesAt = new Date(now + config.openForHours * 3_600_000);
+              const resolutionTimestamp = new Date(bettingClosesAt.getTime() + 5 * 60_000);
+              const word = config.direction === "above" ? "above" : "below";
 
-            const id = await createMarket({
-              question: `Will ${assetSymbol} be ${word} $${strike.toLocaleString("en-US")} at ${resolutionTimestamp.toUTCString()}?`,
-              assetSymbol,
-              oracleSource: `${config.source}:${config.feedSymbol}`,
-              strikePrice: strike,
-              comparison: config.direction === "above" ? "gt" : "lt",
-              bettingOpensAt: new Date(now),
-              bettingClosesAt,
-              resolutionTimestamp,
-              resolutionWindowSec: 300,
-              protocolFeeBps: 200,
-              minBet: toBaseUnits(1, 6),
-              maxBet: toBaseUnits(5_000, 6),
-            });
+              const id = await createMarket({
+                question: `Will ${assetSymbol} be ${word} $${strike.toLocaleString("en-US")} at ${resolutionTimestamp.toUTCString()}?`,
+                assetSymbol,
+                oracleSource: `${config.source}:${config.feedSymbol}`,
+                strikePrice: strike,
+                comparison: config.direction === "above" ? "gt" : "lt",
+                bettingOpensAt: new Date(now),
+                bettingClosesAt,
+                resolutionTimestamp,
+                resolutionWindowSec: 300,
+                protocolFeeBps: 200,
+                minBet: toBaseUnits(1, 6),
+                maxBet: toBaseUnits(5_000, 6),
+              });
 
-            created.push(id);
-          } catch (err) {
-            console.error(`[autoMarket] slot failed for ${assetSymbol} ${config.openForHours}h:`, (err as Error).message);
+              created.push(id);
+            } catch (err) {
+              console.error(`[autoMarket] slot failed for ${assetSymbol} ${config.openForHours}h:`, (err as Error).message);
+            }
           }
         }
+
+        await lockClient.query("COMMIT");
       } catch (err) {
+        brokenConnection = true;
+        await lockClient.query("ROLLBACK").catch(() => {});
         console.error(`[autoMarket] failed for ${assetSymbol}:`, (err as Error).message);
-      } finally {
-        await lockClient.query("SELECT pg_advisory_unlock(hashtext($1))", [assetSymbol]);
       }
     } finally {
-      lockClient.release();
+      // On any failure, destroy this connection instead of returning it to
+      // the pool — belt-and-suspenders against a wedged transaction ever
+      // being handed to the next caller.
+      lockClient.release(brokenConnection);
     }
   }
 
