@@ -1,4 +1,4 @@
-import { query } from "../db/client";
+import { getPool, query } from "../db/client";
 import { binanceResolver } from "../oracle/binance";
 import { stockOracleResolver } from "../oracle/stock";
 import { createMarket } from "./market";
@@ -97,47 +97,61 @@ export async function ensureAutoMarkets(): Promise<string[]> {
   }
 
   for (const [assetSymbol, configs] of byAsset) {
+    // Multiple serverless instances can each run their own worker tick
+    // concurrently (no single long-lived process on Vercel), so a plain
+    // check-then-insert races: several instances see "no market yet" for
+    // the same slot at once and all create an identical duplicate. A
+    // Postgres advisory lock, keyed per asset, serializes that section
+    // across every instance sharing the same database.
+    const lockClient = await getPool().connect();
     try {
-      if (await countActiveForAsset(assetSymbol) >= MAX_ACTIVE_PER_ASSET) continue;
+      await lockClient.query("SELECT pg_advisory_lock(hashtext($1))", [assetSymbol]);
+      try {
+        if (await countActiveForAsset(assetSymbol) >= MAX_ACTIVE_PER_ASSET) continue;
 
-      let spot: number | null = null;
+        let spot: number | null = null;
 
-      for (const config of configs) {
-        try {
-          const closeLow = now + (config.openForHours - config.bandHours) * 3_600_000;
-          const closeHigh = now + (config.openForHours + config.bandHours) * 3_600_000;
-          if (await hasMarketEndingNear(assetSymbol, closeLow, closeHigh)) continue;
+        for (const config of configs) {
+          try {
+            const closeLow = now + (config.openForHours - config.bandHours) * 3_600_000;
+            const closeHigh = now + (config.openForHours + config.bandHours) * 3_600_000;
+            if (await hasMarketEndingNear(assetSymbol, closeLow, closeHigh)) continue;
 
-          if (spot === null) spot = await getSpotPrice(config);
-          const strike = roundToNearest(spot, config.roundTo);
-          if (strike <= 0) continue;
+            if (spot === null) spot = await getSpotPrice(config);
+            const strike = roundToNearest(spot, config.roundTo);
+            if (strike <= 0) continue;
 
-          const bettingClosesAt = new Date(now + config.openForHours * 3_600_000);
-          const resolutionTimestamp = new Date(bettingClosesAt.getTime() + 5 * 60_000);
-          const word = config.direction === "above" ? "above" : "below";
+            const bettingClosesAt = new Date(now + config.openForHours * 3_600_000);
+            const resolutionTimestamp = new Date(bettingClosesAt.getTime() + 5 * 60_000);
+            const word = config.direction === "above" ? "above" : "below";
 
-          const id = await createMarket({
-            question: `Will ${assetSymbol} be ${word} $${strike.toLocaleString("en-US")} at ${resolutionTimestamp.toUTCString()}?`,
-            assetSymbol,
-            oracleSource: `${config.source}:${config.feedSymbol}`,
-            strikePrice: strike,
-            comparison: config.direction === "above" ? "gt" : "lt",
-            bettingOpensAt: new Date(now),
-            bettingClosesAt,
-            resolutionTimestamp,
-            resolutionWindowSec: 300,
-            protocolFeeBps: 200,
-            minBet: toBaseUnits(1, 6),
-            maxBet: toBaseUnits(5_000, 6),
-          });
+            const id = await createMarket({
+              question: `Will ${assetSymbol} be ${word} $${strike.toLocaleString("en-US")} at ${resolutionTimestamp.toUTCString()}?`,
+              assetSymbol,
+              oracleSource: `${config.source}:${config.feedSymbol}`,
+              strikePrice: strike,
+              comparison: config.direction === "above" ? "gt" : "lt",
+              bettingOpensAt: new Date(now),
+              bettingClosesAt,
+              resolutionTimestamp,
+              resolutionWindowSec: 300,
+              protocolFeeBps: 200,
+              minBet: toBaseUnits(1, 6),
+              maxBet: toBaseUnits(5_000, 6),
+            });
 
-          created.push(id);
-        } catch (err) {
-          console.error(`[autoMarket] slot failed for ${assetSymbol} ${config.openForHours}h:`, (err as Error).message);
+            created.push(id);
+          } catch (err) {
+            console.error(`[autoMarket] slot failed for ${assetSymbol} ${config.openForHours}h:`, (err as Error).message);
+          }
         }
+      } catch (err) {
+        console.error(`[autoMarket] failed for ${assetSymbol}:`, (err as Error).message);
+      } finally {
+        await lockClient.query("SELECT pg_advisory_unlock(hashtext($1))", [assetSymbol]);
       }
-    } catch (err) {
-      console.error(`[autoMarket] failed for ${assetSymbol}:`, (err as Error).message);
+    } finally {
+      lockClient.release();
     }
   }
 
