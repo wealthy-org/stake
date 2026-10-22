@@ -14,8 +14,17 @@ export default function StatsPage() {
   const [markets, setMarkets] = useState<MarketRow[]>([]);
 
   useEffect(() => {
-    getStats().then(setStats).catch(() => {});
-    listMarkets().then(setMarkets).catch(() => {});
+    let active = true;
+    const fetchAll = () => {
+      getStats().then((d) => { if (active) setStats(d); }).catch(() => {});
+      listMarkets().then((d) => { if (active) setMarkets(d); }).catch(() => {});
+    };
+    fetchAll();
+    const timer = setInterval(fetchAll, 10000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
   }, []);
 
   if (!stats)

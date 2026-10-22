@@ -623,6 +623,14 @@ input[type=range]{flex:1;accent-color:var(--ink);height:4px}
 .zeros>div+div{padding-left:20px;border-left:1px solid var(--line)}
 .zeros small{display:block;color:var(--ink2);font-size:13px}
 .zeros b{font:800 44px/1 var(--display)}
+.zeros .chg{display:block;font:600 12px var(--type);margin-top:4px;white-space:nowrap}
+
+/* Secondary (bid/ask, spread) — a lighter stat row, smaller type than the
+   headline .zeros numbers so it doesn't inherit their 44px display font. */
+.subzeros{display:flex;gap:28px;flex-wrap:wrap;margin:-24px 0 40px}
+.subzeros>div{min-width:140px}
+.subzeros small{display:block;color:var(--ink2);font-size:12.5px;margin-bottom:3px}
+.subzeros b{font:700 20px/1.2 var(--display);white-space:nowrap}
 .tl{list-style:none;padding:0}
 .tl li{position:relative;padding:0 0 16px 36px;color:var(--ink3)}
 .tl li::before{content:"";position:absolute;left:9px;top:24px;bottom:-2px;width:2px;background:var(--line)}

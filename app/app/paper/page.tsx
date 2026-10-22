@@ -84,7 +84,7 @@ function BatchHistorySection({ vaultAddress, count }: { vaultAddress: `0x${strin
   if (count === 0) {
     return (
       <div style={{ marginTop: 14, padding: "14px 18px", background: "var(--slip)", borderRadius: 6, border: "1px dashed var(--line)", textAlign: "center", fontSize: 13, color: "var(--ink2)" }}>
-        Belum ada batch pembelian STAKE yang dieksekusi treasury. Poin pemain yang ada saat ini berstatus <b>menunggu pembelian</b>.
+        No STAKE purchase batch has been executed by the treasury yet. Existing player points are currently <b>pending purchase</b>.
       </div>
     );
   }
@@ -95,11 +95,11 @@ function BatchHistorySection({ vaultAddress, count }: { vaultAddress: `0x${strin
         <thead>
           <tr style={{ borderBottom: "1.5px solid var(--ink)", textAlign: "left", color: "var(--ink2)", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em" }}>
             <th style={{ padding: "8px 10px" }}>Batch</th>
-            <th style={{ padding: "8px 10px" }}>Anggaran Belanja ($1/Poin)</th>
-            <th style={{ padding: "8px 10px" }}>STAKE Diterima</th>
-            <th style={{ padding: "8px 10px" }}>Rasio Hasil Beli</th>
+            <th style={{ padding: "8px 10px" }}>Spend Budget ($1/Point)</th>
+            <th style={{ padding: "8px 10px" }}>STAKE Received</th>
+            <th style={{ padding: "8px 10px" }}>Purchase Ratio</th>
             <th style={{ padding: "8px 10px" }}>Wallets</th>
-            <th style={{ padding: "8px 10px" }}>Waktu Eksekusi</th>
+            <th style={{ padding: "8px 10px" }}>Executed At</th>
             <th style={{ padding: "8px 10px" }}>Tx Ref</th>
           </tr>
         </thead>
@@ -110,7 +110,7 @@ function BatchHistorySection({ vaultAddress, count }: { vaultAddress: `0x${strin
             const pointsBurned = toUnitNumber(batch.totalPointsBurned);
             const stakeReceived = toUnitNumber(batch.totalStakePurchased);
             const ratio = pointsBurned > 0 ? (stakeReceived / pointsBurned).toFixed(2) : "—";
-            const dateStr = batch.timestamp ? new Date(Number(batch.timestamp) * 1000).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" }) : "—";
+            const dateStr = batch.timestamp ? new Date(Number(batch.timestamp) * 1000).toLocaleString("en-US", { dateStyle: "short", timeStyle: "short" }) : "—";
             const txHashRaw = batch.txHash ? String(batch.txHash) : "";
             const isZeroHash = !txHashRaw || /^0x0+$/.test(txHashRaw);
             const txDisplay = isZeroHash ? "On-chain Batch" : `${txHashRaw.slice(0, 8)}…${txHashRaw.slice(-6)}`;
@@ -118,9 +118,9 @@ function BatchHistorySection({ vaultAddress, count }: { vaultAddress: `0x${strin
             return (
               <tr key={idx} style={{ borderBottom: "1px solid var(--line)" }}>
                 <td style={{ padding: "9px 10px", fontFamily: "var(--type)", fontWeight: 700 }}>#{Number(batch.batchId) + 1}</td>
-                <td style={{ padding: "9px 10px" }}>{usd(pointsBurned, 2)} ({num(pointsBurned)} poin)</td>
+                <td style={{ padding: "9px 10px" }}>{usd(pointsBurned, 2)} ({num(pointsBurned)} pts)</td>
                 <td style={{ padding: "9px 10px", fontWeight: 700, color: "var(--desk)" }}>{num(stakeReceived, 2)} STAKE</td>
-                <td style={{ padding: "9px 10px", fontFamily: "var(--type)" }}>{ratio} STAKE / Poin</td>
+                <td style={{ padding: "9px 10px", fontFamily: "var(--type)" }}>{ratio} STAKE / pt</td>
                 <td style={{ padding: "9px 10px" }}>{Number(batch.userCount)}</td>
                 <td style={{ padding: "9px 10px", color: "var(--ink2)" }}>{dateStr}</td>
                 <td style={{ padding: "9px 10px", fontFamily: "var(--type)", fontSize: 11 }}>{txDisplay}</td>
@@ -164,55 +164,55 @@ function OnChainVaultSection() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
         <div>
           <span style={{ fontSize: 11, fontFamily: "var(--type)", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--desk)", fontWeight: 700, background: "var(--yes-t)", padding: "3px 8px", borderRadius: 4 }}>
-            Sistem Reward Revisi STAKE
+            Revised STAKE Reward System
           </span>
           <h2 style={{ fontSize: 22, marginTop: 8, marginBottom: 4, color: "var(--ink)" }}>
-            Reward Poin Kerugian Bersih (Net-Loss)
+            Net-Loss Points Reward
           </h2>
           <p style={{ fontSize: 13.5, color: "var(--ink2)", maxWidth: 740, lineHeight: 1.5 }}>
-            Pemain yang mengalami kerugian bersih di market Stake memperoleh <b>poin</b>. Setiap <b>1 poin mewakili anggaran $1</b> bagi treasury untuk membeli token STAKE di pasar (Pons V2 / Uniswap v4). Poin habis dikonversi saat batch pembelian selesai.
+            Players who end up net-negative on Stake markets earn <b>points</b>. Every <b>1 point represents a $1 budget</b> for the treasury to buy STAKE on the open market (Pons V2 / Uniswap v4). Points are consumed once a purchase batch completes.
           </p>
         </div>
         <div style={{ textAlign: "right" }}>
-          <span style={{ fontSize: 11, color: "var(--ink3)", display: "block" }}>Kontrak RewardVault Pilot</span>
+          <span style={{ fontSize: 11, color: "var(--ink3)", display: "block" }}>Pilot RewardVault Contract</span>
           <code style={{ fontSize: 11, fontFamily: "var(--type)", color: "var(--ink2)" }}>
             {REWARD_VAULT_PILOT.slice(0, 8)}...{REWARD_VAULT_PILOT.slice(-6)}
           </code>
         </div>
       </div>
 
-      {/* 3 Status Angka Utama Sesuai Brief §5 */}
+      {/* 3 headline status figures per brief §5 */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16, marginTop: 20 }}>
-        {/* 1. Poin Menunggu Pembelian */}
+        {/* 1. Points pending purchase */}
         <div style={{ background: "var(--slip)", border: "1.5px solid var(--line)", borderRadius: 10, padding: 18 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
             <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink2)" }}>
-              Poin Menunggu Pembelian
+              Points Pending Purchase
             </span>
             <span style={{ fontSize: 10.5, padding: "2px 7px", borderRadius: 4, background: "#FFF3CD", color: "#856404", fontWeight: 700 }}>
-              Antrean Treasury
+              Treasury Queue
             </span>
           </div>
           <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "var(--display)", color: "var(--ink)" }}>
             {address ? num(pendingPointsNum, 2) : "—"}{" "}
-            <span style={{ fontSize: 15, fontWeight: 500, color: "var(--ink2)" }}>Poin</span>
+            <span style={{ fontSize: 15, fontWeight: 500, color: "var(--ink2)" }}>Points</span>
           </div>
           <p style={{ fontSize: 13, color: "var(--ink2)", marginTop: 6, marginBottom: 0 }}>
-            Setara anggaran pembelian: <b>{address ? usd(pendingPointsNum, 2) : "—"}</b>
+            Equivalent purchase budget: <b>{address ? usd(pendingPointsNum, 2) : "—"}</b>
           </p>
           <p style={{ fontSize: 11, color: "var(--ink3)", marginTop: 8, lineHeight: 1.4 }}>
-            Menunggu treasury menyediakan dana dan membeli STAKE di pasar. Poin belum berubah menjadi token.
+            Waiting on the treasury to fund and execute a market buy. Points have not yet converted to tokens.
           </p>
         </div>
 
-        {/* 2. STAKE Siap Diklaim */}
+        {/* 2. STAKE ready to claim */}
         <div style={{ background: "var(--slip)", border: "2px solid var(--desk)", borderRadius: 10, padding: 18 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
             <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--desk)" }}>
-              STAKE Siap Diklaim
+              STAKE Ready To Claim
             </span>
             <span style={{ fontSize: 10.5, padding: "2px 7px", borderRadius: 4, background: "#D1E7DD", color: "#0F5132", fontWeight: 700 }}>
-              Hasil Pembelian
+              Purchase Result
             </span>
           </div>
           <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "var(--display)", color: "var(--desk)" }}>
@@ -220,7 +220,7 @@ function OnChainVaultSection() {
             <span style={{ fontSize: 15, fontWeight: 500, color: "var(--ink2)" }}>STAKE</span>
           </div>
           <p style={{ fontSize: 13, color: "var(--ink2)", marginTop: 6, marginBottom: 0 }}>
-            Jatah yang sudah dikunci dari batch pembelian treasury.
+            Your locked-in allocation from a completed treasury purchase batch.
           </p>
           {address && isOnChain && (
             <button
@@ -230,25 +230,25 @@ function OnChainVaultSection() {
               onClick={async () => {
                 try {
                   await claimFromVault();
-                  toast("STAKE berhasil diklaim ke wallet!");
+                  toast("STAKE claimed to your wallet!");
                 } catch (err) {
                   toast(friendlyWeb3Error(err));
                 }
               }}
             >
-              {claiming ? "Mengirim STAKE…" : allocatedStakeNum > 0 ? `Klaim ${num(allocatedStakeNum, 2)} STAKE` : "Tidak Ada Token Siap Klaim"}
+              {claiming ? "Sending STAKE…" : allocatedStakeNum > 0 ? `Claim ${num(allocatedStakeNum, 2)} STAKE` : "No Tokens Ready To Claim"}
             </button>
           )}
         </div>
 
-        {/* 3. STAKE Sudah Diklaim */}
+        {/* 3. STAKE already claimed */}
         <div style={{ background: "var(--slip)", border: "1.5px solid var(--line)", borderRadius: 10, padding: 18 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
             <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink2)" }}>
-              STAKE Sudah Diklaim
+              STAKE Already Claimed
             </span>
             <span style={{ fontSize: 10.5, padding: "2px 7px", borderRadius: 4, background: "var(--line)", color: "var(--ink)", fontWeight: 700 }}>
-              Selesai Ditransfer
+              Transferred
             </span>
           </div>
           <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "var(--display)", color: "var(--ink)" }}>
@@ -256,56 +256,56 @@ function OnChainVaultSection() {
             <span style={{ fontSize: 15, fontWeight: 500, color: "var(--ink2)" }}>STAKE</span>
           </div>
           <p style={{ fontSize: 13, color: "var(--ink2)", marginTop: 6, marginBottom: 0 }}>
-            Total token STAKE yang telah sukses ditarik ke wallet.
+            Total STAKE tokens successfully withdrawn to your wallet.
           </p>
           <p style={{ fontSize: 11, color: "var(--ink3)", marginTop: 8, lineHeight: 1.4 }}>
-            Klaim hanya mentransfer jatah yang sudah ada. Tidak ada pembelian baru saat tombol klaim ditekan.
+            Claiming only transfers an existing allocation. No new purchase happens when you press claim.
           </p>
         </div>
       </div>
 
-      {/* Ringkasan Protokol & Treasury */}
+      {/* Protocol & treasury summary */}
       <div className="zeros" style={{ marginTop: 20 }}>
         <div>
-          <small>Total Poin Antrean (Global)</small>
-          <b>{num(totalPendingNum)} Poin ({usd(totalPendingNum, 0)})</b>
+          <small>Total Pending Points (Global)</small>
+          <b>{num(totalPendingNum)} Points ({usd(totalPendingNum, 0)})</b>
         </div>
         <div>
-          <small>Total Poin Telah Dikonversi</small>
-          <b>{num(totalSettledNum)} Poin</b>
+          <small>Total Points Converted</small>
+          <b>{num(totalSettledNum)} Points</b>
         </div>
         <div>
-          <small>Total STAKE Disetor Treasury</small>
+          <small>Total STAKE Deposited By Treasury</small>
           <b>{num(totalDepositedStakeNum, 2)} STAKE</b>
         </div>
         <div>
-          <small>Total STAKE Telah Diklaim</small>
+          <small>Total STAKE Claimed</small>
           <b>{num(totalClaimedStakeNum, 2)} STAKE</b>
         </div>
       </div>
 
-      {/* Penjelasan Transparansi Konversi Poin (§5) */}
+      {/* Conversion transparency note (§5) */}
       <div style={{ marginTop: 18, padding: "12px 16px", borderRadius: 8, background: "var(--slip)", border: "1px solid var(--line)", fontSize: 12.5, color: "var(--ink2)", lineHeight: 1.5 }}>
-        <b>Prinsip Konversi & Nilai STAKE:</b>
+        <b>Conversion & STAKE Value Principles:</b>
         <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>
-          <li><b>Bukan 10 Poin = 10 STAKE:</b> Jumlah token yang didapat tidak tetap, melainkan mengikuti hasil nyata pembelian treasury di pasar dibagi rata per poin dalam batch tersebut.</li>
-          <li><b>Poin Habis Setelah Batch:</b> Poin yang sudah dikonversi hangus dan tidak dapat memperoleh reward dari setoran/batch di masa mendatang.</li>
-          <li><b>Klaim Bebas Risiko Harga:</b> Sekali jatah STAKE dialokasikan, jumlah token Anda terkunci permanen sampai Anda mengklaimnya.</li>
+          <li><b>Not 10 Points = 10 STAKE:</b> the amount of token you receive isn&rsquo;t fixed — it follows the treasury&rsquo;s real market purchase result, split evenly per point within that batch.</li>
+          <li><b>Points expire after a batch:</b> once converted, points are burned and can no longer earn a reward from any future deposit/batch.</li>
+          <li><b>Claiming is price-risk-free:</b> once a STAKE allocation is locked in, your token amount is permanently fixed until you claim it.</li>
         </ul>
       </div>
 
-      {/* Riwayat Batch Pembelian Treasury */}
+      {/* Treasury purchase batch history */}
       <div style={{ marginTop: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <h4 style={{ fontSize: 15, color: "var(--ink)" }}>Riwayat Batch Pembelian Treasury</h4>
-          <span style={{ fontSize: 12, color: "var(--ink3)" }}>Total {batchCount} Batch Dieksekusi</span>
+          <h4 style={{ fontSize: 15, color: "var(--ink)" }}>Treasury Purchase Batch History</h4>
+          <span style={{ fontSize: 12, color: "var(--ink3)" }}>Total {batchCount} Batches Executed</span>
         </div>
         <BatchHistorySection vaultAddress={REWARD_VAULT_PILOT} count={batchCount} />
       </div>
 
       {!isOnChain && (
         <p className="note" style={{ marginTop: 14 }}>
-          Hubungkan wallet pada Robinhood Chain Testnet untuk melihat poin kerugian dan mengklaim jatah STAKE Anda.
+          Connect a wallet on Robinhood Chain Testnet to see your net-loss points and claim your STAKE allocation.
         </p>
       )}
     </div>

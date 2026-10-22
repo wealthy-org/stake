@@ -393,22 +393,13 @@ export default function MarketDetailPage() {
                 <div className="zeros" style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--line)" }}>
                   <div>
                     <small>Live odds</small>
-                    <b>
-                      {polymarketInfo.yesPrice !== null ? `${Math.round(polymarketInfo.yesPrice * 100)}% YES` : "—"}
-                      {polymarketInfo.oneDayPriceChange !== null && (
-                        <span
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 600,
-                            marginLeft: 6,
-                            color: polymarketInfo.oneDayPriceChange >= 0 ? "var(--yes)" : "var(--no)",
-                          }}
-                        >
-                          {polymarketInfo.oneDayPriceChange >= 0 ? "+" : ""}
-                          {(polymarketInfo.oneDayPriceChange * 100).toFixed(1)}pp · 24h
-                        </span>
-                      )}
-                    </b>
+                    <b>{polymarketInfo.yesPrice !== null ? `${Math.round(polymarketInfo.yesPrice * 100)}% YES` : "—"}</b>
+                    {polymarketInfo.oneDayPriceChange !== null && (
+                      <span className="chg" style={{ color: polymarketInfo.oneDayPriceChange >= 0 ? "var(--yes)" : "var(--no)" }}>
+                        {polymarketInfo.oneDayPriceChange >= 0 ? "+" : ""}
+                        {(polymarketInfo.oneDayPriceChange * 100).toFixed(1)}pp · 24h
+                      </span>
+                    )}
                   </div>
                   <div>
                     <small>Total volume</small>
@@ -422,21 +413,26 @@ export default function MarketDetailPage() {
                     <small>Liquidity</small>
                     <b>{usd(polymarketInfo.liquidity, 0)}</b>
                   </div>
-                  {polymarketInfo.bestBid !== null && polymarketInfo.bestAsk !== null && (
-                    <div>
-                      <small>Best bid / ask</small>
-                      <b>
-                        {(polymarketInfo.bestBid * 100).toFixed(1)}¢ / {(polymarketInfo.bestAsk * 100).toFixed(1)}¢
-                      </b>
-                    </div>
-                  )}
-                  {polymarketInfo.spread !== null && (
-                    <div>
-                      <small>Spread</small>
-                      <b>{(polymarketInfo.spread * 100).toFixed(1)}¢</b>
-                    </div>
-                  )}
                 </div>
+
+                {(polymarketInfo.bestBid !== null || polymarketInfo.spread !== null) && (
+                  <div className="subzeros">
+                    {polymarketInfo.bestBid !== null && polymarketInfo.bestAsk !== null && (
+                      <div>
+                        <small>Best bid / ask</small>
+                        <b>
+                          {(polymarketInfo.bestBid * 100).toFixed(1)}¢ / {(polymarketInfo.bestAsk * 100).toFixed(1)}¢
+                        </b>
+                      </div>
+                    )}
+                    {polymarketInfo.spread !== null && (
+                      <div>
+                        <small>Spread</small>
+                        <b>{(polymarketInfo.spread * 100).toFixed(1)}¢</b>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {polymarketInfo.description && (
                   <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--line)" }}>
