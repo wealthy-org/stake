@@ -68,10 +68,28 @@ async function tickOnce(): Promise<void> {
  * this function is invoked from inside ensureSchema()'s own promise chain,
  * so an immediate await here would deadlock on itself. The first tick runs
  * on the interval instead, by which point ensureSchema() has resolved.
+ *
+ * Local-dev-only convenience: a real Vercel deployment runs on serverless
+ * instances with no long-lived process to hold a setInterval, and worse,
+ * EVERY concurrently invoked instance would start its own interval if we
+ * let this run there — exactly what caused the per-asset advisory locks
+ * to keep piling up under load (tickInFlight only guards one process, not
+ * many). In production, GET /api/cron/tick on a real Vercel Cron schedule
+ * is the sole trigger instead, so there is ever only one tick in flight
+ * for the whole deployment, not one per instance.
  */
 export async function startWorker(): Promise<void> {
   if (started) return;
+  if (process.env.VERCEL) {
+    console.log("[worker] on Vercel — ticking happens via the /api/cron/tick schedule, not setInterval");
+    return;
+  }
   started = true;
-  console.log("[worker] paper-bet resolution worker started");
+  console.log("[worker] paper-bet resolution worker started (local dev interval)");
   setInterval(tick, TICK_INTERVAL_MS);
+}
+
+/** Entry point for the Vercel Cron route — reuses the same overlap guard as the local-dev interval. */
+export async function runScheduledTick(): Promise<void> {
+  await tick();
 }
