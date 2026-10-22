@@ -128,7 +128,9 @@ contract TestnetPonsSimulation is Script {
         vault.setRole(vault.POINTS_ROLE(), deployer, true);
         vault.accruePoints(deployer, bytes32("testnet-pons-sim"), 1e18);
 
-        vault.depositReward(stakeBought);
+        address[] memory batchUsers = new address[](1);
+        batchUsers[0] = deployer;
+        vault.settleBatch(batchUsers, stakeBought, bytes32(0));
 
         console.log("RewardVault address:", address(vault));
         console.log("Deposited into vault from a real on-chain swap:", stakeBought);

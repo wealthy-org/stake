@@ -1,161 +1,118 @@
 import { getPool, query } from "../db/client";
-import { binanceResolver } from "../oracle/binance";
-import { stockOracleResolver } from "../oracle/stock";
+import { fetchPolymarketMarkets, getYesTokenId, POLYMARKET_CATEGORIES, type PolymarketCategory } from "../oracle/polymarket";
 import { createMarket } from "./market";
 import { toBaseUnits } from "./units";
 
 /**
- * Keeps the board non-empty without any admin action. Called from the
- * worker tick (lib/worker/scheduler.ts) — createMarket() here is the
- * engine-level function, which has no admin-key gate; only the
- * POST /api/markets route does. So this runs fully automatically.
+ * Replaces the old price-threshold generator (Binance/Nasdaq strike
+ * questions) entirely — leader decision: markets now come from real
+ * Polymarket questions instead. Launch categories are Crypto, Finance,
+ * Geopolitics and Tech; Politics/Sports/Esports/Iran are held back
+ * deliberately, to be turned on later as a marketing/update moment, not
+ * because of any technical limitation.
  *
- * Brief §6 limits V1 to deterministic price questions; this generator
- * rolls a ladder of them — every asset gets a "tomorrow" market and a
- * "this week" market (stock tokens get one of each on NVDA, plus 24h
- * rolls on AAPL/TSLA/GOOGL), some seeded above the strike and some
- * below. Strike price derives from the LIVE oracle price at creation
- * time, rounded to a clean number so the question reads naturally.
- *
- * Uniqueness is per (asset, horizon-band): an existing active market
- * whose betting_closes_at lands inside the band covers the slot, so a
- * 24h market never blocks the weekly one. A small per-asset cap is the
- * catch-up safety valve so one empty board can't spawn unbounded rows.
- * Durations, fee, and bounds remain testnet-only defaults (brief §75).
+ * Resolution mirrors Polymarket itself (lib/oracle/polymarket.ts) — our
+ * market only resolves once Polymarket's own market has actually closed.
+ * Everything else (bet/payout/claim, the per-category advisory lock
+ * against concurrent serverless instances) is unchanged from before.
  */
-interface AutoMarketConfig {
-  assetSymbol: string;
-  source: "binance" | "stock";
-  feedSymbol: string;
-  roundTo: number;
-  openForHours: number;
-  direction: "above" | "below";
-  bandHours: number;
-}
+const LAUNCH_CATEGORIES: PolymarketCategory[] = ["CRYPTO", "FINANCE", "GEOPOLITICS", "TECH"];
 
-const AUTO_MARKETS: AutoMarketConfig[] = [
-  { assetSymbol: "ETH", source: "binance", feedSymbol: "ETHUSDT", roundTo: 50, openForHours: 24, direction: "above", bandHours: 6 },
-  { assetSymbol: "ETH", source: "binance", feedSymbol: "ETHUSDT", roundTo: 50, openForHours: 168, direction: "above", bandHours: 12 },
-  { assetSymbol: "BTC", source: "binance", feedSymbol: "BTCUSDT", roundTo: 1000, openForHours: 24, direction: "below", bandHours: 6 },
-  { assetSymbol: "BTC", source: "binance", feedSymbol: "BTCUSDT", roundTo: 1000, openForHours: 168, direction: "above", bandHours: 12 },
-  { assetSymbol: "SOL", source: "binance", feedSymbol: "SOLUSDT", roundTo: 5, openForHours: 24, direction: "above", bandHours: 6 },
-  { assetSymbol: "SOL", source: "binance", feedSymbol: "SOLUSDT", roundTo: 5, openForHours: 168, direction: "below", bandHours: 12 },
-  { assetSymbol: "NVDA", source: "stock", feedSymbol: "NVDA", roundTo: 10, openForHours: 24, direction: "above", bandHours: 6 },
-  { assetSymbol: "NVDA", source: "stock", feedSymbol: "NVDA", roundTo: 10, openForHours: 168, direction: "above", bandHours: 12 },
-  { assetSymbol: "AAPL", source: "stock", feedSymbol: "AAPL", roundTo: 5, openForHours: 24, direction: "above", bandHours: 6 },
-  { assetSymbol: "TSLA", source: "stock", feedSymbol: "TSLA", roundTo: 10, openForHours: 24, direction: "above", bandHours: 6 },
-  { assetSymbol: "TSLA", source: "stock", feedSymbol: "TSLA", roundTo: 10, openForHours: 168, direction: "above", bandHours: 12 },
-  { assetSymbol: "GOOGL", source: "stock", feedSymbol: "GOOGL", roundTo: 5, openForHours: 24, direction: "above", bandHours: 6 },
-];
-
-const MAX_ACTIVE_PER_ASSET = 3;
+const MAX_ACTIVE_PER_CATEGORY = 5;
 const ACTIVE_STATUSES = ["draft", "open", "locked", "resolution_pending"];
 
-function roundToNearest(value: number, step: number): number {
-  return Math.round(value / step) * step;
-}
+// Polymarket markets can have end dates years out — skip anything that far
+// so the board stays made of questions people can actually wait out,
+// without blocking a category's cap on stale long-horizon noise.
+const MAX_HORIZON_DAYS = 90;
 
-async function countActiveForAsset(assetSymbol: string): Promise<number> {
+// UMA-based resolution on Polymarket's side can take time after a
+// market's stated end date (disputes, etc.) — give resolveMarket() a
+// generous grace window instead of the few-minutes window price markets
+// used, so a slow-to-settle Polymarket market doesn't get cancelled here
+// for "no valid report in window" before Polymarket has even closed it.
+const RESOLUTION_WINDOW_SEC = 7 * 24 * 3600;
+
+async function countActiveForCategory(category: string): Promise<number> {
   const rows = await query<{ count: string }>(
     `SELECT COUNT(*) AS count FROM markets WHERE asset_symbol = $1 AND status = ANY($2)`,
-    [assetSymbol, ACTIVE_STATUSES]
+    [category, ACTIVE_STATUSES]
   );
   return Number(rows[0].count);
 }
 
-/** True when an active market for the asset already closes inside this horizon band. */
-async function hasMarketEndingNear(assetSymbol: string, closeLowMs: number, closeHighMs: number): Promise<boolean> {
+/** Matches by prefix (not exact equality) so a conditionId already tracked under the older 2-segment oracle_source format (before the Yes-token-id suffix was added) still counts as tracked. */
+async function alreadyTrackedByCondition(conditionId: string): Promise<boolean> {
   const rows = await query<{ count: string }>(
-    `SELECT COUNT(*) AS count FROM markets
-     WHERE asset_symbol = $1 AND status = ANY($2)
-       AND betting_closes_at >= $3 AND betting_closes_at <= $4`,
-    [assetSymbol, ACTIVE_STATUSES, new Date(closeLowMs), new Date(closeHighMs)]
+    `SELECT COUNT(*) AS count FROM markets WHERE oracle_source LIKE $1`,
+    [`polymarket:${conditionId}%`]
   );
   return Number(rows[0].count) > 0;
-}
-
-async function getSpotPrice(config: AutoMarketConfig): Promise<number> {
-  if (config.source === "stock") {
-    const obs = await stockOracleResolver.getStockObservation(config.feedSymbol);
-    if (obs.isHalted) throw new Error(`${config.feedSymbol} trading halted`);
-    return obs.price;
-  }
-  const observation = await binanceResolver.verifyAndResolve(config.feedSymbol);
-  return observation.price;
 }
 
 export async function ensureAutoMarkets(): Promise<string[]> {
   const created: string[] = [];
   const now = Date.now();
+  const maxEndDate = now + MAX_HORIZON_DAYS * 24 * 3600_000;
 
-  // Group per asset so the per-asset cap is enforced once (not per slot).
-  const byAsset = new Map<string, AutoMarketConfig[]>();
-  for (const config of AUTO_MARKETS) {
-    const list = byAsset.get(config.assetSymbol) ?? [];
-    list.push(config);
-    byAsset.set(config.assetSymbol, list);
-  }
-
-  for (const [assetSymbol, configs] of byAsset) {
-    // Multiple serverless instances can each run their own worker tick
-    // concurrently (no single long-lived process on Vercel), so a plain
-    // check-then-insert races: several instances see "no market yet" for
-    // the same slot at once and all create an identical duplicate.
-    //
-    // A session-scoped pg_advisory_lock/unlock pair looked like the fix,
-    // but it isn't: if two ticks ever acquire per-asset locks in a
-    // different order, Postgres detects the deadlock and kills one side
-    // mid-flight, before its unlock statement runs. That connection then
-    // goes back to the pool still holding the lock forever — the next
-    // request to touch that asset hangs until the client-side timeout,
-    // every single time, since nothing ever unlocks it again.
-    //
-    // pg_advisory_xact_lock has no such failure mode: it's released the
-    // instant this transaction ends, via COMMIT or ROLLBACK, no matter
-    // how we get there — including the deadlock killer itself, which acts
-    // like an automatic ROLLBACK. There is no code path that leaks it.
+  for (const category of LAUNCH_CATEGORIES) {
+    // Same reasoning as before the Pons/RewardVault work: multiple
+    // concurrent serverless instances can each try to fill the same
+    // category's slots at once. pg_advisory_xact_lock serializes that
+    // per category, and releases automatically on commit/rollback no
+    // matter how this block exits — see the autoMarket git history for
+    // the deadlock this replaced.
     const lockClient = await getPool().connect();
     let brokenConnection = false;
     try {
       await lockClient.query("BEGIN");
       try {
-        await lockClient.query("SELECT pg_advisory_xact_lock(hashtext($1))", [assetSymbol]);
+        await lockClient.query("SELECT pg_advisory_xact_lock(hashtext($1))", [category]);
 
-        if (!((await countActiveForAsset(assetSymbol)) >= MAX_ACTIVE_PER_ASSET)) {
-          let spot: number | null = null;
+        const activeCount = await countActiveForCategory(category);
+        let createdForThisCategory = 0;
+        if (activeCount < MAX_ACTIVE_PER_CATEGORY) {
+          const polymarketMarkets = await fetchPolymarketMarkets(category, 20);
 
-          for (const config of configs) {
+          for (const pm of polymarketMarkets) {
+            if (createdForThisCategory + activeCount >= MAX_ACTIVE_PER_CATEGORY) break;
+
+            const endDateMs = new Date(pm.endDate).getTime();
+            if (!Number.isFinite(endDateMs) || endDateMs <= now || endDateMs > maxEndDate) continue;
+
+            // Third segment (optional) is the Yes CLOB token id, carried
+            // through purely so the dashboard's featured-market chart can
+            // fetch real probability history — getResolver() only ever
+            // reads the first two segments, so this is additive.
+            const yesTokenId = getYesTokenId(pm);
+            const oracleSource = yesTokenId
+              ? `polymarket:${pm.conditionId}:${yesTokenId}`
+              : `polymarket:${pm.conditionId}`;
+            if (await alreadyTrackedByCondition(pm.conditionId)) continue;
+
             try {
-              const closeLow = now + (config.openForHours - config.bandHours) * 3_600_000;
-              const closeHigh = now + (config.openForHours + config.bandHours) * 3_600_000;
-              if (await hasMarketEndingNear(assetSymbol, closeLow, closeHigh)) continue;
-
-              if (spot === null) spot = await getSpotPrice(config);
-              const strike = roundToNearest(spot, config.roundTo);
-              if (strike <= 0) continue;
-
-              const bettingClosesAt = new Date(now + config.openForHours * 3_600_000);
-              const resolutionTimestamp = new Date(bettingClosesAt.getTime() + 5 * 60_000);
-              const word = config.direction === "above" ? "above" : "below";
+              const bettingClosesAt = new Date(endDateMs);
+              const resolutionTimestamp = bettingClosesAt;
 
               const id = await createMarket({
-                question: `Will ${assetSymbol} be ${word} $${strike.toLocaleString("en-US")} at ${resolutionTimestamp.toUTCString()}?`,
-                assetSymbol,
-                oracleSource: `${config.source}:${config.feedSymbol}`,
-                strikePrice: strike,
-                comparison: config.direction === "above" ? "gt" : "lt",
+                question: pm.question,
+                assetSymbol: category,
+                oracleSource,
+                strikePrice: 0.5,
+                comparison: "gt",
                 bettingOpensAt: new Date(now),
                 bettingClosesAt,
                 resolutionTimestamp,
-                resolutionWindowSec: 300,
+                resolutionWindowSec: RESOLUTION_WINDOW_SEC,
                 protocolFeeBps: 200,
                 minBet: toBaseUnits(1, 6),
                 maxBet: toBaseUnits(5_000, 6),
               });
 
               created.push(id);
+              createdForThisCategory++;
             } catch (err) {
-              console.error(`[autoMarket] slot failed for ${assetSymbol} ${config.openForHours}h:`, (err as Error).message);
+              console.error(`[autoMarket] slot failed for ${category} (${pm.conditionId}):`, (err as Error).message);
             }
           }
         }
@@ -164,15 +121,14 @@ export async function ensureAutoMarkets(): Promise<string[]> {
       } catch (err) {
         brokenConnection = true;
         await lockClient.query("ROLLBACK").catch(() => {});
-        console.error(`[autoMarket] failed for ${assetSymbol}:`, (err as Error).message);
+        console.error(`[autoMarket] failed for ${category}:`, (err as Error).message);
       }
     } finally {
-      // On any failure, destroy this connection instead of returning it to
-      // the pool — belt-and-suspenders against a wedged transaction ever
-      // being handed to the next caller.
       lockClient.release(brokenConnection);
     }
   }
 
   return created;
 }
+
+export { LAUNCH_CATEGORIES, POLYMARKET_CATEGORIES };

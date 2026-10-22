@@ -49,6 +49,41 @@ export const erc20Abi = [
 
 export const rewardVaultAbi = [
   {
+    name: "totalPendingPoints",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "totalPointsSettled",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "totalAllocatedStake",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "totalStakeDeposited",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "totalStakeClaimed",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
     name: "totalPoints",
     type: "function",
     stateMutability: "view",
@@ -75,10 +110,31 @@ export const rewardVaultAbi = [
     stateMutability: "view",
     inputs: [{ name: "", type: "address" }],
     outputs: [
-      { name: "points", type: "uint256" },
-      { name: "rewardDebt", type: "uint256" },
-      { name: "claimed", type: "uint256" },
+      { name: "pendingPoints", type: "uint256" },
+      { name: "allocatedStake", type: "uint256" },
+      { name: "claimedStake", type: "uint256" },
     ],
+  },
+  {
+    name: "pendingPoints",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "user", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "allocatedStake",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "user", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "claimedStake",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "user", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
   },
   {
     name: "pendingReward",
@@ -86,6 +142,34 @@ export const rewardVaultAbi = [
     stateMutability: "view",
     inputs: [{ name: "user", type: "address" }],
     outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "getBatchHistoryCount",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "getBatch",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "batchId", type: "uint256" }],
+    outputs: [
+      {
+        name: "",
+        type: "tuple",
+        components: [
+          { name: "batchId", type: "uint256" },
+          { name: "totalPointsBurned", type: "uint256" },
+          { name: "totalStakePurchased", type: "uint256" },
+          { name: "conversionRatio", type: "uint256" },
+          { name: "timestamp", type: "uint256" },
+          { name: "txHash", type: "bytes32" },
+          { name: "userCount", type: "uint256" },
+        ],
+      },
+    ],
   },
   {
     name: "claim",

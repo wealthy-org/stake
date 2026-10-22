@@ -46,6 +46,42 @@ const COINS: Record<string, JSX.Element> = {
       />
     </svg>
   ),
+  // Polymarket-sourced launch categories — each gets a distinct icon +
+  // color so the Trending list reads at a glance instead of falling into
+  // the identical gray "first-3-letters" fallback circle.
+  CRYPTO: (
+    <svg viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10" fill="#F2A900" />
+      <text x="12" y="16.5" textAnchor="middle" fill="#7A4E00" fontSize="12" fontWeight="800">
+        ₿
+      </text>
+    </svg>
+  ),
+  FINANCE: (
+    <svg viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10" fill="#1FA96B" />
+      <path d="M7 15.5l3-3.3 2.4 2 4.1-5" stroke="#fff" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M13.8 9.2h2.7v2.7" stroke="#fff" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  GEOPOLITICS: (
+    <svg viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10" fill="#2F6FED" />
+      <path
+        d="M12 3.5a8.5 8.5 0 100 17 8.5 8.5 0 000-17zm0 1.4c1 1 1.7 2.5 2.1 4.1h-4.2c.4-1.6 1.1-3.1 2.1-4.1zm-3.5 4.1H5.3a7.1 7.1 0 013.6-3.2 11 11 0 00-1 3.2zm0 1.4a14 14 0 000 3.2H5.3a7 7 0 010-3.2zm1.4 4.6h4.2c-.4 1.6-1.1 3.1-2.1 4.1-1-1-1.7-2.5-2.1-4.1zm0-1.4a12.6 12.6 0 010-3.2h4.2a12.6 12.6 0 010 3.2zm5.6 1.4h3.2a7.1 7.1 0 01-3.6 3.2c.5-1 .8-2.1 1-3.2zm0-1.4a14 14 0 000-3.2h3.2a7 7 0 010 3.2zm-.4-4.6c-.2-1.1-.5-2.2-1-3.2a7.1 7.1 0 013.6 3.2z"
+        fill="#fff"
+      />
+    </svg>
+  ),
+  TECH: (
+    <svg viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10" fill="#8B5CF6" />
+      <rect x="9" y="9" width="6" height="6" rx="1" fill="none" stroke="#fff" strokeWidth="1.6" />
+      <g stroke="#fff" strokeWidth="1.6" strokeLinecap="round">
+        <path d="M12 5.5v2M12 16.5v2M5.5 12h2M16.5 12h2" />
+      </g>
+    </svg>
+  ),
 };
 
 export default function Coin({ symbol }: { symbol: string }) {

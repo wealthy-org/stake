@@ -98,11 +98,12 @@ contract RewardVaultIntegrationTest is Test {
 
         assertGt(realizedLoss, 0, "alice should have a nonzero net loss");
         assertEq(pointsAdded, realizedLoss, "points accrue 1:1 with realized loss, no emission curve");
-        assertEq(vault.pendingReward(alice), 0, "no reward token has been deposited yet, so nothing is claimable yet");
+        assertEq(vault.pendingPoints(alice), realizedLoss, "alice points should be in pending purchase status");
+        assertEq(vault.pendingReward(alice), 0, "no batch has been settled yet, so nothing is claimable yet");
 
         // Treasury now buys the reward token on the open market (simulated
         // here as a mint, since the real purchase happens off-chain against
-        // the Pons/Uniswap v4 pool) and deposits it.
+        // the Pons/Uniswap v4 pool) and settles the batch.
         rewardToken.mint(treasuryBuyer, 1_000e6);
         vm.startPrank(admin);
         vault.setRole(vault.DEPOSITOR_ROLE(), treasuryBuyer, true);
@@ -110,14 +111,25 @@ contract RewardVaultIntegrationTest is Test {
 
         vm.startPrank(treasuryBuyer);
         rewardToken.approve(address(vault), 1_000e6);
-        vault.depositReward(1_000e6);
+        address[] memory users = new address[](1);
+        users[0] = alice;
+        vault.settleBatch(users, 1_000e6, bytes32("tx-buy-pons"));
         vm.stopPrank();
 
-        // Alice is still the only point holder, so the whole deposit is hers.
-        assertEq(vault.pendingReward(alice), 1_000e6);
+        // Alice's pending points are now burned, and she has allocated STAKE ready to claim
+        assertEq(vault.pendingPoints(alice), 0, "alice points should be burned after batch settlement");
+        assertEq(vault.pendingReward(alice), 1_000e6, "alice allocated stake should be ready to claim");
+        assertEq(vault.allocatedStake(alice), 1_000e6);
 
         vm.prank(alice);
         vault.claim();
         assertEq(rewardToken.balanceOf(alice), 1_000e6);
+        assertEq(vault.claimedStake(alice), 1_000e6);
+        assertEq(vault.allocatedStake(alice), 0);
+
+        // Cannot claim again
+        vm.prank(alice);
+        vm.expectRevert("RewardVault: nothing to claim");
+        vault.claim();
     }
 }

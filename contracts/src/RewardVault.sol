@@ -7,181 +7,354 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IEmissionController} from "./interfaces/IEmissionController.sol";
 
 /// @title RewardVault
-/// @notice Distributes a fixed-supply reward token (launched elsewhere —
-/// e.g. via Pons — with no mint authority left for this protocol) to
-/// bettors who have a net realized loss, proportional to "points" they
-/// accrue over time. Replaces the old mint-on-loss design
-/// (EmissionController) for any token this protocol does not control the
-/// supply of.
+/// @notice Implements the revised Stake Points Reward mechanism for losing bettors.
 ///
-/// Points are the same net-loss figure the DB-ledger phase already tracks
-/// in `positions.realized_loss` (max(0, totalStake - totalPayout) per
-/// wallet per market) — PointsAccrued is called once per claim, same
-/// call site EmissionController.claimLossReward used to be called from.
-///
-/// Distribution uses the standard "accumulator" pattern (MasterChef /
-/// SushiBar / Synthetix StakingRewards): depositing rewards only ever
-/// raises a single global `accRewardPerPoint` ratio, and nothing is ever
-/// promised beyond what toeken balance this contract actually holds —
-/// there is no fixed exchange rate and no unfunded liability. Points that
-/// go unclaimed for a long time are not lost or expired; they simply claim
-/// a share of whatever has been deposited by the time they're claimed.
+/// Under the revised design (Brief Revisi STAKE — Reward Poin Untuk Pemain Yang Kalah):
+/// 1. Each 1 point represents a $1 USD budget for the treasury to buy STAKE tokens.
+/// 2. Points are NOT tokens, NOT tradeable, and NOT a direct claim to withdraw dollars.
+/// 3. Points wait in status "pending purchase" until the treasury executes a buy batch.
+/// 4. The treasury purchases STAKE on the open market (Pons V2 bonding curve or Uniswap v4 pool)
+///    using the allocated USD budget.
+/// 5. The actual STAKE tokens received are deposited into this vault via `settleBatch(...)`.
+/// 6. The points in that batch are permanently BURNED / consumed (they will never receive
+///    rewards from future batches).
+/// 7. The conversion ratio (STAKE received / points in batch) locks the exact STAKE allocation
+///    for each user in `allocatedStake`.
+/// 8. Users call `claim()` to withdraw their locked `allocatedStake`. Claiming does not perform
+///    new market buys or recalculate amounts regardless of subsequent market price swings.
 contract RewardVault is AccessControl, IEmissionController {
     using SafeERC20 for IERC20;
 
-    /// @dev Granted to whatever contract computes net-loss and calls
-    /// accruePoints — e.g. a PaperBetMarket-equivalent, mirroring how
-    /// EmissionController.MARKET_ROLE worked.
     bytes32 public constant POINTS_ROLE = keccak256("POINTS_ROLE");
-    /// @dev Granted to the treasury that buys the reward token on the open
-    /// market and deposits it here. Kept separate from DEFAULT_ADMIN_ROLE
-    /// so the treasury can never touch points accounting.
     bytes32 public constant DEPOSITOR_ROLE = keccak256("DEPOSITOR_ROLE");
 
-    uint256 private constant ACC_PRECISION = 1e18;
+    uint256 public constant RATIO_PRECISION = 1e18;
 
     IERC20 public immutable rewardToken;
 
-    uint256 public totalPoints;
-    uint256 public totalRewardDeposited;
-    /// @dev Reward-per-point accumulator, scaled by ACC_PRECISION.
-    uint256 public accRewardPerPoint;
+    /// @notice Total points currently awaiting batch purchase ($1 budget each)
+    uint256 public totalPendingPoints;
+
+    /// @notice Total points converted across all completed batches
+    uint256 public totalPointsSettled;
+
+    /// @notice Cumulative points ever accrued (for metrics & IEmissionController compatibility)
+    uint256 public totalPointsEverAccrued;
+
+    /// @notice Total STAKE currently allocated to users and ready to be claimed
+    uint256 public totalAllocatedStake;
+
+    /// @notice Total STAKE deposited by the treasury across all batches
+    uint256 public totalStakeDeposited;
+
+    /// @notice Total STAKE claimed and withdrawn by users to date
+    uint256 public totalStakeClaimed;
 
     struct Account {
-        uint256 points;
-        /// @dev Snapshot of accRewardPerPoint * points at the last time
-        /// this account's points changed or it claimed — the standard
-        /// "reward debt" that makes the accumulator pattern correct.
-        uint256 rewardDebt;
-        uint256 claimed;
+        uint256 pendingPoints;  // Poin menunggu pembelian ($1 budget per point)
+        uint256 allocatedStake; // STAKE siap diklaim (hasil alokasi batch pembelian)
+        uint256 claimedStake;   // STAKE sudah diklaim (sudah ditransfer ke wallet)
     }
 
     mapping(address => Account) public accounts;
 
-    event PointsAccrued(address indexed user, bytes32 indexed marketId, uint256 pointsAdded, uint256 totalPoints);
-    event RewardDeposited(address indexed depositor, uint256 amount, uint256 newAccRewardPerPoint);
+    /// @notice Tracks whether a user's net loss from a specific market was already recorded
+    mapping(bytes32 => mapping(address => bool)) public marketLossRecorded;
+
+    /// @dev Enumerable list of users with positive pending points awaiting purchase
+    address[] private _pendingUsers;
+    mapping(address => uint256) private _pendingUserIndex; // 1-indexed
+
+    struct BatchRecord {
+        uint256 batchId;
+        uint256 totalPointsBurned;    // Budget spent ($1 per point)
+        uint256 totalStakePurchased;  // Real STAKE tokens received from DEX/Pons and deposited
+        uint256 conversionRatio;      // STAKE tokens per point, scaled by RATIO_PRECISION
+        uint256 timestamp;            // Block timestamp of batch settlement
+        bytes32 txHash;               // On-chain tx hash or identifier of the treasury buy tx
+        uint256 userCount;            // Number of wallets settled in this batch
+    }
+
+    BatchRecord[] public batchHistory;
+
+    event PointsAccrued(address indexed user, bytes32 indexed marketId, uint256 pointsAdded, uint256 newPendingPoints);
+    event BatchSettled(
+        uint256 indexed batchId,
+        uint256 totalPointsBurned,
+        uint256 totalStakePurchased,
+        uint256 conversionRatio,
+        uint256 userCount,
+        bytes32 txHash
+    );
+    event StakeAllocated(uint256 indexed batchId, address indexed user, uint256 pointsBurned, uint256 stakeAllocated);
     event RewardClaimed(address indexed user, uint256 amount);
 
     constructor(address admin, IERC20 rewardToken_) {
+        require(admin != address(0), "RewardVault: admin is zero");
+        require(address(rewardToken_) != address(0), "RewardVault: rewardToken is zero");
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         rewardToken = rewardToken_;
     }
 
-    /// @notice Grant/revoke POINTS_ROLE or DEPOSITOR_ROLE — thin wrapper so
-    /// this reads clearly at call sites; AccessControl's own grantRole
-    /// still works too.
+    /// @notice Grant/revoke POINTS_ROLE or DEPOSITOR_ROLE
     function setRole(bytes32 role, address account, bool enabled) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (enabled) _grantRole(role, account);
         else _revokeRole(role, account);
     }
 
-    /// @notice Called once per net-loss claim (same net-loss figure the
-    /// brief's §11 anti-farming formula already produces). Settles any
-    /// pending reward first so the points increase never retroactively
-    /// changes what was already earned at the old accumulator value.
+    /// @notice Called once per net-loss claim by an authorized market contract.
     function accruePoints(address user, bytes32 marketId, uint256 pointsAdded) external onlyRole(POINTS_ROLE) {
-        _addPoints(user, marketId, pointsAdded);
+        _recordPoints(user, marketId, pointsAdded);
     }
 
-    /// @notice IEmissionController-compatible entry point, so a
-    /// PaperBetMarket clone can point its `emissionController` at this
-    /// contract with zero changes to PaperBetMarket.sol itself — it still
-    /// calls `claimLossReward(marketId, user, realizedLoss)` exactly as
-    /// before. Points accrue 1:1 with realizedLoss (fine2's "$100 lost =
-    /// 100 points" spec) rather than through EmissionController's old
-    /// piecewise mint curve, which has no meaning here since this
-    /// contract never mints — it only ever redistributes what
-    /// depositReward has brought in.
+    /// @notice IEmissionController-compatible entry point, so PaperBetMarket can point
+    /// its `emissionController` at this contract with zero changes to PaperBetMarket.sol.
     function claimLossReward(bytes32 marketId, address user, uint256 realizedLoss)
         external
         onlyRole(POINTS_ROLE)
         returns (uint256 pointsAdded)
     {
-        _addPoints(user, marketId, realizedLoss);
+        _recordPoints(user, marketId, realizedLoss);
         return realizedLoss;
     }
 
-    /// @notice Preview is 1:1 here (no emission curve to walk), kept only
-    /// so this contract satisfies IEmissionController's shape.
-    function previewEmission(uint256, uint256 realizedLoss) external pure returns (uint256) {
-        return realizedLoss;
-    }
-
-    /// @dev Closest analog to EmissionController's field of the same name:
-    /// total points ever accrued, which is denominated 1:1 in realized-loss
-    /// dollars by construction.
-    function cumulativeRealizedLoss() external view returns (uint256) {
-        return totalPoints;
-    }
-
-    /// @dev Closest analog to EmissionController's field of the same name:
-    /// total reward token ever deposited by the treasury (nothing is
-    /// "minted" in this model).
-    function cumulativePaperMinted() external view returns (uint256) {
-        return totalRewardDeposited;
-    }
-
-    /// @notice Treasury calls this after buying rewardToken on the open
-    /// market. Raises accRewardPerPoint for every point holder at once —
-    /// nobody needs to be iterated over, and this is why the accumulator
-    /// pattern scales to any number of holders.
-    function depositReward(uint256 amount) external onlyRole(DEPOSITOR_ROLE) {
+    function _recordPoints(address user, bytes32 marketId, uint256 amount) internal {
+        require(user != address(0), "RewardVault: user is zero");
         require(amount > 0, "RewardVault: amount must be > 0");
-        require(totalPoints > 0, "RewardVault: no points to distribute to yet");
 
-        rewardToken.safeTransferFrom(msg.sender, address(this), amount);
-        accRewardPerPoint += (amount * ACC_PRECISION) / totalPoints;
-        totalRewardDeposited += amount;
+        if (marketId != bytes32(0)) {
+            require(!marketLossRecorded[marketId][user], "RewardVault: market loss already recorded");
+            marketLossRecorded[marketId][user] = true;
+        }
 
-        emit RewardDeposited(msg.sender, amount, accRewardPerPoint);
+        if (accounts[user].pendingPoints == 0) {
+            _addPendingUser(user);
+        }
+
+        accounts[user].pendingPoints += amount;
+        totalPendingPoints += amount;
+        totalPointsEverAccrued += amount;
+
+        emit PointsAccrued(user, marketId, amount, accounts[user].pendingPoints);
     }
 
-    /// @notice What `user` could claim right now, without changing state.
-    function pendingReward(address user) public view returns (uint256) {
-        Account storage acc = accounts[user];
-        uint256 accrued = (acc.points * accRewardPerPoint) / ACC_PRECISION;
-        return acc.claimed + accrued - acc.rewardDebt;
+    /// @notice Treasury settles a batch of pending points after purchasing STAKE on the market.
+    /// @param users Array of users whose pending points are converted in this batch.
+    /// @param pointsToBurn Array of points to consume per user (must be <= pendingPoints[user]).
+    /// @param totalStakePurchased Actual STAKE tokens received from the buy transaction.
+    /// @param txHash Buy transaction hash or reference on Pons/Uniswap.
+    function settleBatch(
+        address[] calldata users,
+        uint256[] calldata pointsToBurn,
+        uint256 totalStakePurchased,
+        bytes32 txHash
+    ) external onlyRole(DEPOSITOR_ROLE) returns (uint256 batchId) {
+        return _settleBatch(users, pointsToBurn, totalStakePurchased, txHash);
     }
 
-    /// @notice Pays out everything currently pending for the caller. Bound
-    /// strictly by this contract's own rewardToken balance via the ERC-20
-    /// transfer itself — there is no path that can promise more than what
-    /// depositReward has actually brought in.
+    /// @notice Convenience overload: converts all current pending points for the specified users.
+    function settleBatch(
+        address[] calldata users,
+        uint256 totalStakePurchased,
+        bytes32 txHash
+    ) external onlyRole(DEPOSITOR_ROLE) returns (uint256 batchId) {
+        uint256 len = users.length;
+        uint256[] memory pointsToBurn = new uint256[](len);
+        for (uint256 i = 0; i < len; ++i) {
+            pointsToBurn[i] = accounts[users[i]].pendingPoints;
+        }
+        return _settleBatch(users, pointsToBurn, totalStakePurchased, txHash);
+    }
+
+    /// @notice Helper to settle all currently pending users at once.
+    function settleAllPending(
+        uint256 totalStakePurchased,
+        bytes32 txHash
+    ) external onlyRole(DEPOSITOR_ROLE) returns (uint256 batchId) {
+        uint256 len = _pendingUsers.length;
+        require(len > 0, "RewardVault: no pending users");
+        address[] memory users = new address[](len);
+        uint256[] memory pointsToBurn = new uint256[](len);
+        for (uint256 i = 0; i < len; ++i) {
+            users[i] = _pendingUsers[i];
+            pointsToBurn[i] = accounts[users[i]].pendingPoints;
+        }
+        return _settleBatch(users, pointsToBurn, totalStakePurchased, txHash);
+    }
+
+    function _settleBatch(
+        address[] memory users,
+        uint256[] memory pointsToBurn,
+        uint256 totalStakePurchased,
+        bytes32 txHash
+    ) internal returns (uint256 batchId) {
+        uint256 len = users.length;
+        require(len > 0, "RewardVault: empty users");
+        require(len == pointsToBurn.length, "RewardVault: array length mismatch");
+        require(totalStakePurchased > 0, "RewardVault: stake purchased must be > 0");
+
+        uint256 batchTotalPoints = 0;
+        for (uint256 i = 0; i < len; ++i) {
+            uint256 pts = pointsToBurn[i];
+            require(pts > 0, "RewardVault: pointsToBurn must be > 0");
+            require(accounts[users[i]].pendingPoints >= pts, "RewardVault: insufficient pending points");
+            batchTotalPoints += pts;
+        }
+
+        // Pull the purchased STAKE tokens from treasury (msg.sender)
+        rewardToken.safeTransferFrom(msg.sender, address(this), totalStakePurchased);
+
+        uint256 conversionRatio = (totalStakePurchased * RATIO_PRECISION) / batchTotalPoints;
+        batchId = batchHistory.length;
+        uint256 allocatedSoFar = 0;
+
+        for (uint256 i = 0; i < len; ++i) {
+            address user = users[i];
+            uint256 pts = pointsToBurn[i];
+
+            accounts[user].pendingPoints -= pts;
+            if (accounts[user].pendingPoints == 0) {
+                _removePendingUser(user);
+            }
+
+            uint256 userStake;
+            if (i == len - 1) {
+                // Last user receives remainder to prevent rounding loss
+                userStake = totalStakePurchased - allocatedSoFar;
+            } else {
+                userStake = (pts * totalStakePurchased) / batchTotalPoints;
+                allocatedSoFar += userStake;
+            }
+
+            accounts[user].allocatedStake += userStake;
+            emit StakeAllocated(batchId, user, pts, userStake);
+        }
+
+        totalPendingPoints -= batchTotalPoints;
+        totalPointsSettled += batchTotalPoints;
+        totalAllocatedStake += totalStakePurchased;
+        totalStakeDeposited += totalStakePurchased;
+
+        batchHistory.push(
+            BatchRecord({
+                batchId: batchId,
+                totalPointsBurned: batchTotalPoints,
+                totalStakePurchased: totalStakePurchased,
+                conversionRatio: conversionRatio,
+                timestamp: block.timestamp,
+                txHash: txHash,
+                userCount: len
+            })
+        );
+
+        emit BatchSettled(batchId, batchTotalPoints, totalStakePurchased, conversionRatio, len, txHash);
+    }
+
+    /// @notice Claims all allocated STAKE tokens for the caller.
+    /// Does NOT perform any new open-market purchase or recalculate ratios.
     function claim() external returns (uint256 amount) {
-        _settle(msg.sender);
-
         Account storage acc = accounts[msg.sender];
-        amount = acc.claimed; // _settle moves pending into a claimable bucket below
+        amount = acc.allocatedStake;
         require(amount > 0, "RewardVault: nothing to claim");
 
-        acc.claimed = 0;
+        acc.allocatedStake = 0;
+        acc.claimedStake += amount;
+        totalAllocatedStake -= amount;
+        totalStakeClaimed += amount;
+
         rewardToken.safeTransfer(msg.sender, amount);
 
         emit RewardClaimed(msg.sender, amount);
     }
 
-    function _addPoints(address user, bytes32 marketId, uint256 amount) private {
-        require(amount > 0, "RewardVault: amount must be > 0");
-        _settle(user);
+    // --- View Functions ---
 
-        Account storage acc = accounts[user];
-        acc.points += amount;
-        acc.rewardDebt = (acc.points * accRewardPerPoint) / ACC_PRECISION;
-        totalPoints += amount;
-
-        emit PointsAccrued(user, marketId, amount, totalPoints);
+    /// @notice STAKE ready to be claimed by `user` right now.
+    function pendingReward(address user) external view returns (uint256) {
+        return accounts[user].allocatedStake;
     }
 
-    /// @dev Moves this account's pending reward (at the current
-    /// accumulator value) into `claimed` and re-bases rewardDebt, so
-    /// points changes and claims never double-count or lose the pending
-    /// amount in between.
-    function _settle(address user) private {
-        Account storage acc = accounts[user];
-        if (acc.points > 0) {
-            uint256 accrued = (acc.points * accRewardPerPoint) / ACC_PRECISION;
-            acc.claimed += accrued - acc.rewardDebt;
-            acc.rewardDebt = accrued;
+    /// @notice STAKE allocated and ready to be claimed.
+    function allocatedStake(address user) external view returns (uint256) {
+        return accounts[user].allocatedStake;
+    }
+
+    /// @notice Points waiting for batch purchase for `user`.
+    function pendingPoints(address user) external view returns (uint256) {
+        return accounts[user].pendingPoints;
+    }
+
+    /// @notice STAKE already claimed and withdrawn by `user`.
+    function claimedStake(address user) external view returns (uint256) {
+        return accounts[user].claimedStake;
+    }
+
+    /// @notice Alias for totalPendingPoints for backwards compatibility.
+    function totalPoints() external view returns (uint256) {
+        return totalPendingPoints;
+    }
+
+    /// @notice Alias for totalStakeDeposited for backwards compatibility.
+    function totalRewardDeposited() external view returns (uint256) {
+        return totalStakeDeposited;
+    }
+
+    /// @notice Number of batches settled so far.
+    function getBatchHistoryCount() external view returns (uint256) {
+        return batchHistory.length;
+    }
+
+    /// @notice Returns batch record by ID.
+    function getBatch(uint256 batchId) external view returns (BatchRecord memory) {
+        require(batchId < batchHistory.length, "RewardVault: invalid batchId");
+        return batchHistory[batchId];
+    }
+
+    /// @notice Returns all users who currently have positive pending points.
+    function getPendingUsers() external view returns (address[] memory) {
+        return _pendingUsers;
+    }
+
+    /// @notice Count of users who currently have positive pending points.
+    function getPendingUsersCount() external view returns (uint256) {
+        return _pendingUsers.length;
+    }
+
+    // --- IEmissionController Compatibility ---
+
+    function previewEmission(uint256, uint256 realizedLoss) external pure returns (uint256) {
+        return realizedLoss;
+    }
+
+    function cumulativeRealizedLoss() external view returns (uint256) {
+        return totalPointsEverAccrued;
+    }
+
+    function cumulativePaperMinted() external view returns (uint256) {
+        return totalStakeDeposited;
+    }
+
+    // --- Internal User Tracking Set ---
+
+    function _addPendingUser(address user) internal {
+        if (_pendingUserIndex[user] == 0) {
+            _pendingUsers.push(user);
+            _pendingUserIndex[user] = _pendingUsers.length;
+        }
+    }
+
+    function _removePendingUser(address user) internal {
+        uint256 index1 = _pendingUserIndex[user];
+        if (index1 > 0) {
+            uint256 index0 = index1 - 1;
+            uint256 lastIndex0 = _pendingUsers.length - 1;
+            if (index0 != lastIndex0) {
+                address lastUser = _pendingUsers[lastIndex0];
+                _pendingUsers[index0] = lastUser;
+                _pendingUserIndex[lastUser] = index1;
+            }
+            _pendingUsers.pop();
+            delete _pendingUserIndex[user];
         }
     }
 }

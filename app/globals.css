@@ -1662,8 +1662,10 @@ footer p{max-width:58ch}
 .trending-item .trend-arrow{font:700 13px var(--type);color:var(--ink3)}
 
 /* ── Live tape strip (dashboard) ── */
-.mkt-tape{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;--up:#1FA96B;--down:#CF3520}
-.mkt-tape::-webkit-scrollbar{display:none}
+.mkt-tape{display:flex;overflow:hidden;--up:#1FA96B;--down:#CF3520;-webkit-mask-image:linear-gradient(90deg,transparent,#000 24px,#000 calc(100% - 24px),transparent);mask-image:linear-gradient(90deg,transparent,#000 24px,#000 calc(100% - 24px),transparent)}
+.mkt-tape-track{display:flex;gap:10px;animation:mkt-tape-scroll 48s linear infinite}
+.mkt-tape:hover .mkt-tape-track{animation-play-state:paused}
+@keyframes mkt-tape-scroll{from{transform:translateX(0)}to{transform:translateX(-50%)}}
 .mkt-tape-card{flex:none;width:172px;border:1px solid var(--rule);border-radius:12px;background:var(--slip);padding:10px 12px 8px;display:flex;flex-direction:column;gap:5px}
 .mkt-tape-card.up{color:var(--up)}
 .mkt-tape-card.down{color:var(--down)}

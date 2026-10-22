@@ -18,6 +18,38 @@ export function isTimeframe(v: string | null): v is Timeframe {
   return v === "24H" || v === "7D" || v === "1M" || v === "ALL";
 }
 
+const CLOB_BASE = process.env.POLYMARKET_CLOB_BASE ?? "https://clob.polymarket.com";
+
+// fidelity is the bucket size in minutes; Polymarket enforces a minimum
+// per interval (e.g. 1w needs >= 5) and 400s otherwise.
+const POLYMARKET_TF_MAP: Record<Timeframe, { interval: string; fidelity: number }> = {
+  "24H": { interval: "1d", fidelity: 10 },
+  "7D": { interval: "1w", fidelity: 30 },
+  "1M": { interval: "1m", fidelity: 180 },
+  "ALL": { interval: "max", fidelity: 1440 },
+};
+
+/**
+ * Real Polymarket probability history for a Yes/No token (the market's
+ * own resolution source, not a separate price feed) — replaces the
+ * deterministic-but-fake random walk the dashboard used to draw for every
+ * featured market. `p` comes back as a 0-1 share price; scaled to 0-100
+ * here so the chart's existing "probability %" axis needs no changes.
+ */
+export async function getPolymarketHistory(tokenId: string, tf: Timeframe): Promise<PricePoint[]> {
+  const { interval, fidelity } = POLYMARKET_TF_MAP[tf];
+  const url = `${CLOB_BASE}/prices-history?market=${encodeURIComponent(tokenId)}&interval=${interval}&fidelity=${fidelity}`;
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`Polymarket prices-history failed: ${res.status}`);
+  const json = (await res.json()) as { history?: { t: number; p: number }[] };
+  if (!Array.isArray(json.history) || json.history.length === 0) throw new Error("empty Polymarket price history");
+  const points = json.history
+    .map((h) => ({ t: h.t * 1000, p: h.p * 100 }))
+    .filter((p) => Number.isFinite(p.t) && Number.isFinite(p.p));
+  if (points.length < 2) throw new Error("not enough Polymarket history points");
+  return points;
+}
+
 /** Binance public klines — real trade tape, no key required. */
 export async function getBinanceHistory(symbol: string, tf: Timeframe): Promise<PricePoint[]> {
   const clean = symbol.trim().toUpperCase();

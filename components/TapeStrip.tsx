@@ -8,8 +8,14 @@ const INSTRUMENTS = [
   { label: "BTC", source: "binance", feed: "BTCUSDT" },
   { label: "ETH", source: "binance", feed: "ETHUSDT" },
   { label: "SOL", source: "binance", feed: "SOLUSDT" },
+  { label: "BNB", source: "binance", feed: "BNBUSDT" },
+  { label: "XRP", source: "binance", feed: "XRPUSDT" },
+  { label: "DOGE", source: "binance", feed: "DOGEUSDT" },
+  { label: "ADA", source: "binance", feed: "ADAUSDT" },
   { label: "NVDA", source: "stock", feed: "NVDA" },
   { label: "TSLA", source: "stock", feed: "TSLA" },
+  { label: "AAPL", source: "stock", feed: "AAPL" },
+  { label: "MSFT", source: "stock", feed: "MSFT" },
 ] as const;
 
 type Slot = {
@@ -89,38 +95,44 @@ export default function TapeStrip() {
     };
   }, []);
 
+  function renderCard(inst: (typeof INSTRUMENTS)[number], dupKey: string) {
+    const slot = slots[inst.label] ?? EMPTY;
+    const up = (slot.chg ?? 0) >= 0;
+    return (
+      <div key={dupKey} className={`mkt-tape-card ${slot.dead ? "dead" : up ? "up" : "down"}`}>
+        <div className="mkt-tape-head">
+          <span className="mkt-tape-dot" aria-hidden="true" />
+          {inst.label}/USD
+        </div>
+        <span className="mkt-tape-price">{slot.price}</span>
+        <span className="mkt-tape-chg">
+          {slot.chg === null ? " — " : `${up ? "+" : ""}${slot.chg.toFixed(2)}% · 24h`}
+        </span>
+        <svg className="mkt-tape-svg" viewBox="0 0 140 40" preserveAspectRatio="none" aria-hidden="true">
+          {slot.points && (
+            <>
+              <path d={sparkPath(slot.points).area} fill="currentColor" opacity="0.08" />
+              <path
+                d={sparkPath(slot.points).path}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                vectorEffect="non-scaling-stroke"
+              />
+            </>
+          )}
+        </svg>
+      </div>
+    );
+  }
+
   return (
     <div className="mkt-tape" aria-label="Live market tape">
-      {INSTRUMENTS.map((inst) => {
-        const slot = slots[inst.label] ?? EMPTY;
-        const up = (slot.chg ?? 0) >= 0;
-        return (
-          <div key={inst.label} className={`mkt-tape-card ${slot.dead ? "dead" : up ? "up" : "down"}`}>
-            <div className="mkt-tape-head">
-              <span className="mkt-tape-dot" aria-hidden="true" />
-              {inst.label}/USD
-            </div>
-            <span className="mkt-tape-price">{slot.price}</span>
-            <span className="mkt-tape-chg">
-              {slot.chg === null ? " — " : `${up ? "+" : ""}${slot.chg.toFixed(2)}% · 24h`}
-            </span>
-            <svg className="mkt-tape-svg" viewBox="0 0 140 40" preserveAspectRatio="none" aria-hidden="true">
-              {slot.points && (
-                <>
-                  <path d={sparkPath(slot.points).area} fill="currentColor" opacity="0.08" />
-                  <path
-                    d={sparkPath(slot.points).path}
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                </>
-              )}
-            </svg>
-          </div>
-        );
-      })}
+      {/* Track is duplicated so the CSS marquee can loop seamlessly at -50%. */}
+      <div className="mkt-tape-track">
+        {INSTRUMENTS.map((inst) => renderCard(inst, `a-${inst.label}`))}
+        {INSTRUMENTS.map((inst) => renderCard(inst, `b-${inst.label}`))}
+      </div>
     </div>
   );
 }

@@ -30,7 +30,7 @@ export default function Dashboard() {
   const [markets, setMarkets] = useState<MarketRow[] | null>(null);
   const [stats, setStats] = useState<ProtocolStats | null>(null);
   const [featuredIdx, setFeaturedIdx] = useState(0);
-  const [marketFilter, setMarketFilter] = useState<"all" | "stocks" | "crypto">("all");
+  const [marketFilter, setMarketFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
   useEffect(() => {
@@ -53,12 +53,20 @@ export default function Dashboard() {
     };
   }, []);
 
-  // Top open markets sorted by pool volume
+  // Top open markets — Polymarket-sourced markets surface first (leader's
+  // priority call: push Polymarket content to the top without touching the
+  // lifecycle of any already-created legacy market), then by pool volume
+  // within each group.
   const openMarkets = useMemo(
     () =>
       (markets ?? [])
         .filter((m) => m.status === "open")
-        .sort((a, b) => Number(b.yes_pool) + Number(b.no_pool) - (Number(a.yes_pool) + Number(a.no_pool))),
+        .sort((a, b) => {
+          const aPm = a.oracle_source.startsWith("polymarket:");
+          const bPm = b.oracle_source.startsWith("polymarket:");
+          if (aPm !== bPm) return aPm ? -1 : 1;
+          return Number(b.yes_pool) + Number(b.no_pool) - (Number(a.yes_pool) + Number(a.no_pool));
+        }),
     [markets]
   );
 
@@ -76,9 +84,38 @@ export default function Dashboard() {
   const featuredPaysYes = calculatePays(featuredYes, featuredNo);
   const featuredPaysNo = calculatePays(featuredNo, featuredYes);
 
+  // Real Polymarket probability history for the featured chart, when the
+  // featured market actually has one — the Yes-token id is carried as the
+  // 3rd ":"-separated segment of oracle_source (see lib/engine/autoMarket.ts).
+  const [realHistory, setRealHistory] = useState<number[] | null>(null);
+  useEffect(() => {
+    const source = activeFeatured?.oracle_source ?? "";
+    const tokenId = source.startsWith("polymarket:") ? source.split(":")[2] : null;
+    if (!tokenId) {
+      setRealHistory(null);
+      return;
+    }
+    let active = true;
+    fetch(`/api/price-history?source=polymarket&feed=${encodeURIComponent(tokenId)}&tf=7D`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((data: { t: number; p: number }[]) => {
+        if (!active) return;
+        setRealHistory(Array.isArray(data) && data.length > 1 ? data.map((d) => d.p) : null);
+      })
+      .catch(() => {
+        if (active) setRealHistory(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [activeFeatured?.id, activeFeatured?.oracle_source]);
+
   // Seeded probability walk for the featured chart — deterministic per market,
-  // pinned to the real pool split at the last point.
+  // pinned to the real pool split at the last point. Used only as a fallback
+  // for markets with no real history available (e.g. legacy price-threshold
+  // markets, or a Polymarket market too new to have one yet).
   const chartSeries = useMemo(() => {
+    if (realHistory && realHistory.length > 1) return realHistory;
     if (!activeFeatured) return null;
     let s = 0;
     for (let i = 0; i < activeFeatured.id.length; i++) s = (s * 31 + activeFeatured.id.charCodeAt(i)) % 233280;
@@ -98,7 +135,7 @@ export default function Dashboard() {
       pts.push(Math.round((anchor + (featuredYesPct - anchor) * (i / 10)) * 10) / 10);
     }
     return pts;
-  }, [activeFeatured?.id, featuredYesPct]);
+  }, [activeFeatured?.id, featuredYesPct, realHistory]);
 
   const CW = 600;
   const CH = 180;
@@ -123,17 +160,18 @@ export default function Dashboard() {
   // Trending leaderboard (Top 5 markets by volume)
   const trendingMarkets = useMemo(() => openMarkets.slice(0, 5), [openMarkets]);
 
+  // Filter chip options — derived from whatever asset_symbol values are
+  // actually present, same fix as the Markets page: a hardcoded
+  // Stock Tokens/Crypto pair stopped matching once Polymarket categories
+  // (CRYPTO/FINANCE/GEOPOLITICS/TECH) replaced the old generator.
+  const marketFilterOptions = useMemo(() => {
+    const unique = Array.from(new Set(openMarkets.map((m) => m.asset_symbol))).sort();
+    return ["all", ...unique];
+  }, [openMarkets]);
+
   // Filtered markets for the grid section
   const gridMarkets = useMemo(() => {
-    return openMarkets.filter((m) => {
-      if (marketFilter === "stocks") {
-        return m.oracle_source.startsWith("stock:");
-      }
-      if (marketFilter === "crypto") {
-        return !m.oracle_source.startsWith("stock:");
-      }
-      return true;
-    }).slice(0, 16);
+    return openMarkets.filter((m) => marketFilter === "all" || m.asset_symbol === marketFilter).slice(0, 16);
   }, [openMarkets, marketFilter]);
 
   const openPositions = (summary?.positions ?? []).filter((p) => p.status !== "resolved" && p.status !== "cancelled");
@@ -238,7 +276,7 @@ export default function Dashboard() {
             {/* Pool probability chart (stepped, area-fill, axis labels) */}
             <div className="poly-chart-wrap">
               <div className="poly-chart-head">
-                <span>Pool shift · last 24h</span>
+                <span>{realHistory ? "Polymarket odds · last 7d" : "Pool shift · last 24h"}</span>
                 <div className="poly-chart-legend">
                   <span className="leg-yes"><i /> YES <b>{featuredYesPct}%</b></span>
                   <span className="leg-no"><i /> NO <b>{featuredNoPct}%</b></span>
@@ -411,18 +449,14 @@ export default function Dashboard() {
       {/* Filter Chips Bar */}
       <div className="poly-filter-chips-bar">
         <div className="poly-chips">
-          {[
-            ["all", "All"],
-            ["stocks", "Stock Tokens"],
-            ["crypto", "Crypto"],
-          ].map(([k, label]) => (
+          {marketFilterOptions.map((k) => (
             <button
               key={k}
               type="button"
               className={`poly-chip ${marketFilter === k ? "active" : ""}`}
-              onClick={() => setMarketFilter(k as any)}
+              onClick={() => setMarketFilter(k)}
             >
-              {label}
+              {k === "all" ? "All" : k}
             </button>
           ))}
         </div>

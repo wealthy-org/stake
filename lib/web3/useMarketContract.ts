@@ -115,24 +115,31 @@ export function useOnChainClaim(marketAddress?: `0x${string}`) {
   return { claimPayoutOnChain, claimPaperOnChain, busy };
 }
 
-/** Reads from the on-chain points+vault pilot (RewardVault.sol) — replaces the DB `emission_state` reads for markets that have moved to the real contract. */
+/** Reads from the on-chain points+vault pilot (RewardVault.sol) — implements the 3 distinct states:
+ * 1. Poin menunggu pembelian ($1 budget per point)
+ * 2. STAKE siap diklaim (allocated from completed batch)
+ * 3. STAKE sudah diklaim (already transferred to wallet)
+ */
 export function useRewardVault(vaultAddress?: `0x${string}`) {
   const { address } = useAccount();
 
-  const { data, isLoading } = useReadContracts({
+  const { data, isLoading, refetch: refetchTotals } = useReadContracts({
     contracts: vaultAddress
       ? [
-          { address: vaultAddress, abi: rewardVaultAbi, functionName: "totalPoints" },
-          { address: vaultAddress, abi: rewardVaultAbi, functionName: "totalRewardDeposited" },
+          { address: vaultAddress, abi: rewardVaultAbi, functionName: "totalPendingPoints" },
+          { address: vaultAddress, abi: rewardVaultAbi, functionName: "totalPointsSettled" },
+          { address: vaultAddress, abi: rewardVaultAbi, functionName: "totalStakeDeposited" },
+          { address: vaultAddress, abi: rewardVaultAbi, functionName: "totalStakeClaimed" },
           { address: vaultAddress, abi: rewardVaultAbi, functionName: "rewardToken" },
+          { address: vaultAddress, abi: rewardVaultAbi, functionName: "getBatchHistoryCount" },
         ]
       : [],
     query: { enabled: Boolean(vaultAddress) },
   });
 
-  const { data: myPending } = useReadContract(
+  const { data: userAccount, refetch: refetchAccount } = useReadContract(
     vaultAddress && address
-      ? { address: vaultAddress, abi: rewardVaultAbi, functionName: "pendingReward", args: [address] }
+      ? { address: vaultAddress, abi: rewardVaultAbi, functionName: "accounts", args: [address] }
       : ({} as any)
   );
 
@@ -143,19 +150,43 @@ export function useRewardVault(vaultAddress?: `0x${string}`) {
     if (!vaultAddress) throw new Error("Reward vault address missing");
     setClaiming(true);
     try {
-      return await writeContractAsync({ address: vaultAddress, abi: rewardVaultAbi, functionName: "claim" });
+      const tx = await writeContractAsync({ address: vaultAddress, abi: rewardVaultAbi, functionName: "claim" });
+      setTimeout(() => {
+        refetchTotals();
+        refetchAccount();
+      }, 2000);
+      return tx;
     } finally {
       setClaiming(false);
     }
   }
 
+  const myPendingPoints = (userAccount as any)?.[0] as bigint | undefined;
+  const myAllocatedStake = (userAccount as any)?.[1] as bigint | undefined;
+  const myClaimedStake = (userAccount as any)?.[2] as bigint | undefined;
+
   return {
+    // Global metrics
+    totalPendingPoints: data?.[0]?.result as bigint | undefined,
+    totalPointsSettled: data?.[1]?.result as bigint | undefined,
+    totalStakeDeposited: data?.[2]?.result as bigint | undefined,
+    totalStakeClaimed: data?.[3]?.result as bigint | undefined,
+    rewardTokenAddress: data?.[4]?.result as `0x${string}` | undefined,
+    batchHistoryCount: data?.[5]?.result as bigint | undefined,
+    // Legacy aliases
     totalPoints: data?.[0]?.result as bigint | undefined,
-    totalRewardDeposited: data?.[1]?.result as bigint | undefined,
-    rewardTokenAddress: data?.[2]?.result as `0x${string}` | undefined,
-    myPendingReward: myPending as bigint | undefined,
+    totalRewardDeposited: data?.[2]?.result as bigint | undefined,
+    // User-specific 3 states
+    myPendingPoints,
+    myAllocatedStake,
+    myClaimedStake,
+    myPendingReward: myAllocatedStake, // backwards compatibility
     isLoading,
     claimFromVault,
     claiming,
+    refetch: () => {
+      refetchTotals();
+      refetchAccount();
+    },
   };
 }

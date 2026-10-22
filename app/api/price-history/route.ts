@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { ok, fail } from "@/lib/http";
-import { getBinanceHistory, getNasdaqHistory, isTimeframe, type PricePoint } from "@/lib/oracle/history";
+import { getBinanceHistory, getNasdaqHistory, getPolymarketHistory, isTimeframe, type PricePoint } from "@/lib/oracle/history";
 
 /**
  * Public price history for the market detail chart. No DB involved —
@@ -19,6 +19,8 @@ export async function GET(req: NextRequest) {
     let points: PricePoint[];
     if (source === "stock") {
       points = await getNasdaqHistory(feed);
+    } else if (source === "polymarket") {
+      points = await getPolymarketHistory(feed, tf);
     } else {
       points = await getBinanceHistory(feed, tf);
     }

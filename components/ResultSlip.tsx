@@ -166,11 +166,13 @@ export default function ResultSlip({ market, position, onChanged }: { market: Ma
         {realizedLoss > 0.005 && (
           <div className="srow mc">
             <div>
-              <small>STAKE certificate</small>
-              <b>{paperAmount !== null ? num(paperAmount) : "—"} STAKE</b>
+              <small>Poin reward (net-loss)</small>
+              <b>{num(realizedLoss)} Poin (${num(realizedLoss)} budget)</b>
             </div>
             {position.loss_reward_claimed ? (
-              <span className="done">Claimed</span>
+              <span className="done" title="Poin sudah dicatat. Cek halaman STAKE untuk jatah klaim batch treasury.">
+                Poin Tercatat
+              </span>
             ) : (
               <button
                 className="btn sm gold"
@@ -181,21 +183,21 @@ export default function ResultSlip({ market, position, onChanged }: { market: Ma
                   try {
                     if (onChainMode) {
                       await claimPaperOnChain();
-                      toast("STAKE points accrued — claim the token itself from the STAKE page once the reward vault is funded");
+                      toast(`${num(realizedLoss)} poin berhasil dicatat! Status: Menunggu pembelian treasury. Cek halaman STAKE.`);
                     } else {
                       const res = await claimPaper(market.id, address);
-                      toast(`Claimed ${num(paperToNumber(res.paperMinted))} STAKE`);
+                      toast(`${num(paperToNumber(res.paperMinted))} poin reward dicatat`);
                     }
                     await refresh();
                     onChanged();
                   } catch (err) {
-                    toast(onChainMode ? friendlyWeb3Error(err) : err instanceof Error ? err.message : "Claim failed");
+                    toast(onChainMode ? friendlyWeb3Error(err) : err instanceof Error ? err.message : "Pencatatan poin gagal");
                   } finally {
                     setBusy(null);
                   }
                 }}
               >
-                Claim
+                Catat poin
               </button>
             )}
           </div>

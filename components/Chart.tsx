@@ -41,14 +41,19 @@ export default function MarketChart({ market }: { market: MarketRow }) {
   const [state, setState] = useState<"loading" | "live" | "illustrative" | "error">("loading");
   const [hover, setHover] = useState<number | null>(null);
 
-  const feed = market.oracle_source.includes(":") ? market.oracle_source.split(":")[1] : market.oracle_source;
+  const sourceParts = market.oracle_source.split(":");
   const isStock = market.oracle_source.startsWith("stock:");
-  const strike = Number(market.strike_price);
+  const isPolymarket = market.oracle_source.startsWith("polymarket:");
+  // Polymarket's feed id for price-history is the Yes CLOB token (3rd
+  // segment), not the conditionId (2nd segment) resolution itself uses.
+  const feed = isPolymarket ? sourceParts[2] ?? sourceParts[1] : sourceParts[1] ?? market.oracle_source;
+  const strike = isPolymarket ? 50 : Number(market.strike_price); // 50 = midline on a 0-100% probability axis, not a real strike
 
   useEffect(() => {
     let active = true;
     setState("loading");
-    const url = `/api/price-history?source=${isStock ? "stock" : "binance"}&feed=${encodeURIComponent(feed)}&tf=${tf}`;
+    const source = isPolymarket ? "polymarket" : isStock ? "stock" : "binance";
+    const url = `/api/price-history?source=${source}&feed=${encodeURIComponent(feed)}&tf=${tf}`;
     fetch(url)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
       .then((data: PricePoint[]) => {
@@ -70,7 +75,7 @@ export default function MarketChart({ market }: { market: MarketRow }) {
     return () => {
       active = false;
     };
-  }, [feed, tf, isStock, market.id]);
+  }, [feed, tf, isStock, isPolymarket, market.id]);
 
   const points = useMemo(() => live ?? seededSeries(`${market.id}-${tf}`, strike), [live, market.id, tf, strike]);
 
@@ -105,7 +110,7 @@ export default function MarketChart({ market }: { market: MarketRow }) {
   const tipFlip = hover !== null && hover > points.length * 0.62;
 
   const fmtPrice = (v: number) =>
-    v >= 1000 ? `$${v.toLocaleString("en-US", { maximumFractionDigits: 0 })}` : `$${v.toFixed(2)}`;
+    isPolymarket ? `${v.toFixed(1)}%` : v >= 1000 ? `$${v.toLocaleString("en-US", { maximumFractionDigits: 0 })}` : `$${v.toFixed(2)}`;
   const fmtTime = (t: number) => {
     const d = new Date(t);
     const short =
@@ -120,8 +125,8 @@ export default function MarketChart({ market }: { market: MarketRow }) {
       <div className="mchd">
         <div className="charttag">
           <i />
-          {isStock ? `${feed} tape · Nasdaq` : `${feed} tape · Binance`}
-          {state === "illustrative" && <em>illustrative</em>}
+          {isPolymarket ? "Live odds · Polymarket" : isStock ? `${feed} tape · Nasdaq` : `${feed} tape · Binance`}
+          {state === "illustrative" && !isPolymarket && <em>illustrative</em>}
         </div>
         <div className="mctf" role="tablist" aria-label="Chart timeframe">
           {TFS.map((t) => (
@@ -137,7 +142,7 @@ export default function MarketChart({ market }: { market: MarketRow }) {
           className="mchart"
           viewBox={`0 0 ${W} ${H}`}
           role="img"
-          aria-label={`${feed} price against the ${usd(strike, 0)} strike`}
+          aria-label={isPolymarket ? "Polymarket Yes-odds history" : `${feed} price against the ${usd(strike, 0)} strike`}
           onPointerMove={onMove}
           onPointerLeave={onLeave}
         >
@@ -150,15 +155,17 @@ export default function MarketChart({ market }: { market: MarketRow }) {
 
           {grid.map((g) => (
             <g key={g}>
-              <line x1={PL} x2={W - PR} y1={yv(g)} y2={yv(g)} stroke="var(--line)" strokeDasharray={Math.abs(g - strike) < 1e-9 ? undefined : "2 4"} />
+              <line x1={PL} x2={W - PR} y1={yv(g)} y2={yv(g)} stroke="var(--line)" strokeDasharray={!isPolymarket && Math.abs(g - strike) < 1e-9 ? undefined : "2 4"} />
               <text x={PL - 6} y={yv(g) + 4} textAnchor="end" className="mclabel">
-                {g >= 1000 ? `$${(g / 1000).toFixed(1)}k` : `$${g.toFixed(g < 10 ? 2 : 1)}`}
+                {isPolymarket ? `${g.toFixed(0)}%` : g >= 1000 ? `$${(g / 1000).toFixed(1)}k` : `$${g.toFixed(g < 10 ? 2 : 1)}`}
               </text>
             </g>
           ))}
 
-          {/* strike marker (line only here — chip is redrawn above everything) */}
-          <line x1={PL} x2={W - PR} y1={strikeY} y2={strikeY} stroke="var(--gold-d)" strokeWidth="1.6" strokeDasharray="6 4" />
+          {/* strike marker — a real strike line only makes sense for price-threshold markets, not a Yes/No probability */}
+          {!isPolymarket && (
+            <line x1={PL} x2={W - PR} y1={strikeY} y2={strikeY} stroke="var(--gold-d)" strokeWidth="1.6" strokeDasharray="6 4" />
+          )}
 
           {/* bottom time labels */}
           {[0, 0.5, 1].map((f) => {
@@ -184,11 +191,15 @@ export default function MarketChart({ market }: { market: MarketRow }) {
             </g>
           )}
 
-          {/* strike chip on top of everything, always readable */}
-          <rect x={W - PR - 78} y={strikeY - 21} width="78" height="16" rx="3" fill="var(--gold)" stroke="var(--gold-d)" strokeWidth="1" />
-          <text x={W - PR - 7} y={strikeY - 9} textAnchor="end" className="mcbadge">
-            Strike {strike >= 1000 ? `$${strike.toLocaleString("en-US")}` : `$${strike.toFixed(0)}`}
-          </text>
+          {/* strike chip — not applicable to a Yes/No probability chart */}
+          {!isPolymarket && (
+            <>
+              <rect x={W - PR - 78} y={strikeY - 21} width="78" height="16" rx="3" fill="var(--gold)" stroke="var(--gold-d)" strokeWidth="1" />
+              <text x={W - PR - 7} y={strikeY - 9} textAnchor="end" className="mcbadge">
+                Strike {strike >= 1000 ? `$${strike.toLocaleString("en-US")}` : `$${strike.toFixed(0)}`}
+              </text>
+            </>
+          )}
         </svg>
 
         {hov && (
@@ -198,20 +209,25 @@ export default function MarketChart({ market }: { market: MarketRow }) {
           >
             <b>{fmtPrice(hov.p)}</b>
             <span>
-              {fmtTime(hov.t)} · {hov.p > strike ? "above" : hov.p < strike ? "below" : "at"} {usd(strike, 0)}
+              {fmtTime(hov.t)}
+              {!isPolymarket && <> · {hov.p > strike ? "above" : hov.p < strike ? "below" : "at"} {usd(strike, 0)}</>}
             </span>
           </div>
         )}
       </div>
 
       <p className="mchint">
-        {state === "live" && (
+        {state === "live" && isPolymarket && <>Real Polymarket Yes-odds history.</>}
+        {state === "live" && !isPolymarket && (
           <>
             Real {isStock ? "Nasdaq" : "Binance"} {tf === "24H" ? "15-minute" : tf === "7D" ? "hourly" : tf === "1M" ? "4-hour" : "daily"} closes. Hover the
             chart to inspect any point against the {usd(strike, 0)} strike.
           </>
         )}
-        {state !== "live" && <>Illustrative preview for this oracle feed — resolution still reads the verified price at settlement time.</>}
+        {state !== "live" && isPolymarket && <>Odds history for this market.</>}
+        {state !== "live" && !isPolymarket && (
+          <>Illustrative preview for this oracle feed — resolution still reads the verified price at settlement time.</>
+        )}
       </p>
     </div>
   );

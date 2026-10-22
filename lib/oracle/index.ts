@@ -1,6 +1,7 @@
 import type { IOracleResolver } from "./resolver";
 import { binanceResolver } from "./binance";
 import { stockOracleResolver } from "./stock";
+import { polymarketResolver } from "./polymarket";
 
 /**
  * Maps a market's `oracle_source` prefix (e.g. "binance:ETHUSDT" or "stock:NVDA")
@@ -10,6 +11,7 @@ import { stockOracleResolver } from "./stock";
 const RESOLVERS: Record<string, IOracleResolver> = {
   binance: binanceResolver,
   stock: stockOracleResolver,
+  polymarket: polymarketResolver,
 };
 
 export function getResolver(oracleSource: string): { resolver: IOracleResolver; feedId: string } {

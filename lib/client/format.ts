@@ -10,8 +10,8 @@ export function short(n: number): string {
   return "$" + Math.round(n);
 }
 
-export function num(n: number): string {
-  return Math.round(n).toLocaleString("en-US");
+export function num(n: number, d = 0): string {
+  return n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
 }
 
 export function pct(a: number, b: number): number {

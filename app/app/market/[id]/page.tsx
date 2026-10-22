@@ -21,6 +21,22 @@ const COMPARISON_LABEL: Record<string, string> = {
   lte: "less than or equal to",
 };
 
+interface PolymarketInfo {
+  question: string;
+  slug: string;
+  image: string | null;
+  description: string | null;
+  active: boolean;
+  closed: boolean;
+  yesPrice: number | null;
+  noPrice: number | null;
+  volume: number;
+  volume24hr: number;
+  liquidity: number;
+  endDate: string | null;
+  polymarketUrl: string | null;
+}
+
 function shortAddr(a: string): string {
   return a ? `${a.slice(0, 6)}…${a.slice(-4)}` : "—";
 }
@@ -37,6 +53,7 @@ export default function MarketDetailPage() {
   const [emissionRate, setEmissionRate] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<"positions" | "bets">("positions");
+  const [polymarketInfo, setPolymarketInfo] = useState<PolymarketInfo | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -55,6 +72,35 @@ export default function MarketDetailPage() {
     const timer = setInterval(load, 10_000);
     return () => clearInterval(timer);
   }, [load]);
+
+  // Live enrichment straight from Polymarket's own API — real current
+  // odds, volume, and a link back to the original market — refreshed
+  // independently of our own market row, so it stays accurate as the
+  // real Polymarket market keeps trading.
+  useEffect(() => {
+    if (!market || !isPolymarketSource(market.oracle_source)) {
+      setPolymarketInfo(null);
+      return;
+    }
+    const conditionId = market.oracle_source.split(":")[1];
+    if (!conditionId) return;
+    let active = true;
+    const fetchInfo = () =>
+      fetch(`/api/polymarket/${conditionId}`)
+        .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+        .then((data: PolymarketInfo) => {
+          if (active) setPolymarketInfo(data);
+        })
+        .catch(() => {
+          if (active) setPolymarketInfo(null);
+        });
+    fetchInfo();
+    const timer = setInterval(fetchInfo, 30_000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [market?.id, market?.oracle_source]);
 
   const derived = useMemo(() => {
     if (!market) return null;
@@ -260,7 +306,7 @@ export default function MarketDetailPage() {
   return (
     <>
       <div className="crumb">
-        <Link href="/app">Board</Link>
+        <Link href="/app/markets">← Board</Link>
         <span>/</span>
         <span>No. {market.id.slice(-4)}</span>
       </div>
@@ -274,12 +320,20 @@ export default function MarketDetailPage() {
                 <span>
                   Status <b>{open ? "Open" : market.status === "resolved" ? "Resolved" : market.status === "cancelled" ? "Cancelled" : "Awaiting oracle"}</b>
                 </span>
-                <span>
-                  Strike <b>{usd(Number(market.strike_price), 0)}</b>
-                </span>
-                <span>
-                  Oracle <b>{isStockSource(market.oracle_source) ? "Nasdaq tape" : "Binance spot price"}</b>
-                </span>
+                {isPolymarketSource(market.oracle_source) ? (
+                  <span>
+                    Oracle <b>Polymarket settlement</b>
+                  </span>
+                ) : (
+                  <>
+                    <span>
+                      Strike <b>{usd(Number(market.strike_price), 0)}</b>
+                    </span>
+                    <span>
+                      Oracle <b>{isStockSource(market.oracle_source) ? "Nasdaq tape" : "Binance spot price"}</b>
+                    </span>
+                  </>
+                )}
                 {open && (
                   <span>
                     Closes in <Countdown to={market.betting_closes_at} />
@@ -328,7 +382,28 @@ export default function MarketDetailPage() {
 
           <div className="blk">
             <MarketChart market={market} />
-            <p className="note" style={{ marginTop: 10 }}>Pool share shows where money sits. It is not a calibrated probability.</p>
+
+            {isPolymarketSource(market.oracle_source) && polymarketInfo && (
+              <div className="zeros" style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--line)" }}>
+                <div>
+                  <small>Live odds</small>
+                  <b>{polymarketInfo.yesPrice !== null ? `${Math.round(polymarketInfo.yesPrice * 100)}% YES` : "—"}</b>
+                </div>
+                <div>
+                  <small>Total volume</small>
+                  <b>{usd(polymarketInfo.volume, 0)}</b>
+                </div>
+                <div>
+                  <small>24h volume</small>
+                  <b>{usd(polymarketInfo.volume24hr, 0)}</b>
+                </div>
+                <div>
+                  <small>Liquidity</small>
+                  <b>{usd(polymarketInfo.liquidity, 0)}</b>
+                </div>
+              </div>
+            )}
+
           </div>
 
           <div className="blk">
@@ -362,4 +437,8 @@ export default function MarketDetailPage() {
 
 function isStockSource(source: string): boolean {
   return source.startsWith("stock:");
+}
+
+function isPolymarketSource(source: string): boolean {
+  return source.startsWith("polymarket:");
 }

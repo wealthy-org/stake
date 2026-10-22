@@ -7,7 +7,6 @@ import MarketRow_ from "@/components/MarketRow";
 import { SkelBoard } from "@/components/Skeleton";
 
 type Tab = "open" | "wait" | "done" | "all";
-type Asset = "all" | "ETH" | "BTC" | "SOL" | "NVDA" | "AAPL" | "TSLA";
 
 const PAGE_SIZE = 12;
 
@@ -18,12 +17,16 @@ const TABS: [Tab, string][] = [
   ["done", "Resolved"],
 ];
 
-const ASSETS: Asset[] = ["all", "ETH", "BTC", "SOL", "NVDA", "AAPL", "TSLA"];
-
 export default function MarketsPage() {
   const [markets, setMarkets] = useState<MarketRow[] | null>(null);
   const [tab, setTab] = useState<Tab>("open");
-  const [asset, setAsset] = useState<Asset>("all");
+  // "all" plus whatever asset_symbol values actually exist in the data —
+  // this used to be a hardcoded ETH/BTC/.../TSLA list left over from the
+  // old price-threshold generator, which silently stopped matching
+  // anything once markets started coming from Polymarket categories
+  // (CRYPTO/FINANCE/GEOPOLITICS/TECH) instead. Deriving it from the data
+  // means the next source switch doesn't need this file touched again.
+  const [asset, setAsset] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
@@ -59,6 +62,13 @@ export default function MarketsPage() {
       const q = search.trim().toLowerCase();
       const searchOk = !q || m.question.toLowerCase().includes(q) || m.asset_symbol.toLowerCase().includes(q);
       return tabOk && assetOk && searchOk;
+    }).sort((a, b) => {
+      // Polymarket-sourced markets surface first — leader's priority call,
+      // without touching the lifecycle of any already-created legacy market.
+      const aPm = a.oracle_source.startsWith("polymarket:");
+      const bPm = b.oracle_source.startsWith("polymarket:");
+      if (aPm !== bPm) return aPm ? -1 : 1;
+      return Number(b.yes_pool) + Number(b.no_pool) - (Number(a.yes_pool) + Number(a.no_pool));
     });
   }, [markets, tab, asset, search]);
 
@@ -67,6 +77,12 @@ export default function MarketsPage() {
 
   // Reset to page 1 on filter/search change
   useEffect(() => { setPage(1); }, [tab, asset, search]);
+
+  const assets = useMemo(() => {
+    if (!markets) return ["all"];
+    const unique = Array.from(new Set(markets.map((m) => m.asset_symbol))).sort();
+    return ["all", ...unique];
+  }, [markets]);
 
   const counts = useMemo(() => {
     if (!markets) return { open: 0, wait: 0, done: 0, all: 0 };
@@ -137,7 +153,7 @@ export default function MarketsPage() {
         <div className="mkt-asset-row">
           <span className="asset-label">Asset:</span>
           <div className="mkt-asset-chips">
-            {ASSETS.map((k) => (
+            {assets.map((k) => (
               <button
                 key={k}
                 className={`asset-chip ${asset === k ? "active" : ""}`}
