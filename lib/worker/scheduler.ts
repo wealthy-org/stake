@@ -5,8 +5,27 @@ import { runBotTick } from "../engine/bots";
 
 const TICK_INTERVAL_MS = 15_000;
 let started = false;
+let tickInFlight = false;
 
 async function tick(): Promise<void> {
+  // Guard against overlapping ticks: if one tick runs longer than the
+  // 15s interval (easy to happen once ensureAutoMarkets' per-asset
+  // advisory locks start queuing), setInterval fires again regardless —
+  // without this, a second tick starts on top of the first, both racing
+  // for the same locks via pg_advisory_xact_lock. The lock itself can't
+  // deadlock anymore, but the second tick just blocks and piles up as an
+  // "idle in transaction" connection, and repeated overlaps exhaust the
+  // whole pool exactly like that.
+  if (tickInFlight) return;
+  tickInFlight = true;
+  try {
+    await tickOnce();
+  } finally {
+    tickInFlight = false;
+  }
+}
+
+async function tickOnce(): Promise<void> {
   try {
     await openDueMarkets();
     await lockDueMarkets();
