@@ -147,10 +147,12 @@ input[type=range]{flex:1;accent-color:var(--ink);height:4px}
 .fl>span:first-child{flex:none;font-size:13px;color:var(--ink3);width:78px}
 .fl .fill{flex:1;border-bottom:1.5px solid var(--sline);padding-bottom:2px;font:700 16px var(--type);color:var(--biro);min-height:26px;min-width:0}
 .tickrow{display:flex;gap:20px}
-.tk{display:inline-flex;align-items:center;gap:8px;font:700 16px var(--type);color:var(--biro);padding:0}
-.tk .bx{width:20px;height:20px;border:1.8px solid var(--ink);border-radius:3px;display:grid;place-items:center;background:rgba(255,255,255,.6)}
-.tk .bx svg{width:17px;height:17px;stroke:var(--biro);stroke-width:3.2;fill:none;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:28;stroke-dashoffset:28;transition:stroke-dashoffset .35s var(--out)}
-.tk.on .bx svg{stroke-dashoffset:0}
+.tk{display:inline-flex;align-items:center;justify-content:center;gap:6px;font:700 14px var(--type);color:var(--ink2);padding:7px 18px;border:1.8px solid var(--sline);border-radius:99px;background:transparent;transition:background .15s,border-color .15s,color .15s,transform .1s}
+.tk:active{transform:scale(.97)}
+.tk.yes.on{background:var(--yes);border-color:var(--yes);color:#fff;box-shadow:0 2px 10px -3px rgba(43,69,230,.55)}
+.tk.no.on{background:var(--no);border-color:var(--no);color:#fff;box-shadow:0 2px 10px -3px rgba(207,53,32,.5)}
+.tk.yes:not(.on):hover{border-color:var(--yes);color:var(--yes)}
+.tk.no:not(.on):hover{border-color:var(--no);color:var(--no)}
 .ld{display:flex;align-items:baseline;gap:6px;padding:5px 0;font-size:14px}
 .ld i{flex:1;border-bottom:1.5px dotted var(--ink3);opacity:.55;transform:translateY(-3px);min-width:12px}
 .ld b{font:700 15px var(--type);color:var(--biro);text-align:right}
@@ -588,8 +590,9 @@ input[type=range]{flex:1;accent-color:var(--ink);height:4px}
 .stake input{flex:1;border:0;background:none;font:700 30px var(--type);color:var(--biro);width:100%;min-width:0;outline:none;padding:0}
 .stake em{font-style:normal;color:var(--ink3);font-size:13px}
 .chips{display:flex;gap:6px;margin:6px 0 14px}
-.chips button{flex:1;padding:6px;border:1.5px solid var(--ink);border-radius:5px;font:700 13px var(--type);transition:background .15s}
+.chips button{flex:1;padding:6px;border:1.5px solid var(--ink);border-radius:5px;font:700 13px var(--type);transition:background .15s,color .15s,border-color .15s}
 .chips button:hover{background:var(--ink);color:var(--slip)}
+.chips button.on{background:var(--biro);border-color:var(--biro);color:#fff}
 .pos{border:1.5px dashed var(--ink3);border-radius:5px;padding:10px 12px;margin:4px 0 12px}
 .pos h4{font:700 13px var(--body);color:var(--ink2);margin-bottom:2px}
 
@@ -612,6 +615,17 @@ input[type=range]{flex:1;accent-color:var(--ink);height:4px}
 .psum b{font:800 44px/1 var(--display)}
 
 /* paper certificates page */
+.legacy-archive{border:1px dashed var(--line);border-radius:10px;padding:0}
+.legacy-archive summary{display:flex;align-items:center;gap:10px;padding:14px 18px;cursor:pointer;list-style:none;color:var(--ink2)}
+.legacy-archive summary::-webkit-details-marker{display:none}
+.legacy-archive summary b{color:var(--ink);font-size:14px;font-weight:700}
+.legacy-archive summary .chev{margin-left:auto;font-size:14px;color:var(--ink3);transition:transform .15s}
+.legacy-archive[open] summary .chev{transform:rotate(180deg)}
+.legacy-archive[open] summary{border-bottom:1px dashed var(--line)}
+.legacy-archive > div:not(.certbig), .legacy-archive .certbig{padding-left:18px;padding-right:18px}
+.legacy-archive .certbig{margin-left:18px;margin-right:18px;width:calc(100% - 36px);transform:scale(.94);transform-origin:top center}
+.legacy-archive .zeros, .legacy-archive .two{margin-left:18px;margin-right:18px;width:calc(100% - 36px)}
+.legacy-archive .two{margin-bottom:24px}
 .certbig{position:relative;background:var(--cert);border:3px solid var(--gold-d);outline:2px solid var(--gold);outline-offset:-12px;border-radius:4px;padding:56px 48px;text-align:center;box-shadow:var(--shadow);margin-bottom:28px}
 .certbig .k{font-weight:700;color:var(--gold-d);font-size:15px}
 .certbig h1{font-size:clamp(64px,11vw,150px);color:var(--gold-d);line-height:.86;margin:10px 0 14px}

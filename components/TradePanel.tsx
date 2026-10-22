@@ -122,10 +122,10 @@ export default function TradePanel({
       <div className="fl">
         <span>Your pick</span>
         <span className="fill tickrow">
-          <button className={"tk" + (side === "yes" ? " on" : "")} onClick={() => pick("yes")}>
+          <button className={"tk yes" + (side === "yes" ? " on" : "")} onClick={() => pick("yes")}>
             YES
           </button>
-          <button className={"tk" + (side === "no" ? " on" : "")} onClick={() => pick("no")}>
+          <button className={"tk no" + (side === "no" ? " on" : "")} onClick={() => pick("no")}>
             NO
           </button>
         </span>
@@ -140,7 +140,7 @@ export default function TradePanel({
       </div>
       <div className="chips">
         {[10, 50, 100, 500].map((v) => (
-          <button key={v} onClick={() => setAmt(String(v))}>
+          <button key={v} className={Number(amt) === v ? "on" : ""} onClick={() => setAmt(String(v))}>
             ${v}
           </button>
         ))}

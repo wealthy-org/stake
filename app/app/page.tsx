@@ -10,8 +10,21 @@ import Coin from "@/components/Coin";
 import Countdown from "@/components/Countdown";
 import TapeStrip from "@/components/TapeStrip";
 import { Flame, TrendUp, ArrowUpRight } from "@/components/icons";
-import { SkelFacts, SkelBoard } from "@/components/Skeleton";
+import { SkelFacts, SkelBoard, SkelPolyHero, SkelMarketGrid } from "@/components/Skeleton";
 import { useWallet } from "@/components/providers";
+
+// Legacy per-asset tickers from the old price-threshold generator — folded
+// into whichever Polymarket launch category they actually belong to
+// (CRYPTO for coins, FINANCE for single-stock price questions — that's
+// how Polymarket itself buckets equities, not under Tech), same grouping
+// as the Markets page.
+const CRYPTO_TICKERS = new Set(["BTC", "ETH", "SOL"]);
+const STOCK_TICKERS = new Set(["AAPL", "NVDA", "GOOGL", "TSLA"]);
+function assetGroup(symbol: string): string {
+  if (CRYPTO_TICKERS.has(symbol)) return "CRYPTO";
+  if (STOCK_TICKERS.has(symbol)) return "FINANCE";
+  return symbol;
+}
 
 function calculatePays(own: number, other: number): string {
   if (own <= 0) return "1.00";
@@ -165,13 +178,13 @@ export default function Dashboard() {
   // Stock Tokens/Crypto pair stopped matching once Polymarket categories
   // (CRYPTO/FINANCE/GEOPOLITICS/TECH) replaced the old generator.
   const marketFilterOptions = useMemo(() => {
-    const unique = Array.from(new Set(openMarkets.map((m) => m.asset_symbol))).sort();
+    const unique = Array.from(new Set(openMarkets.map((m) => assetGroup(m.asset_symbol)))).sort();
     return ["all", ...unique];
   }, [openMarkets]);
 
   // Filtered markets for the grid section
   const gridMarkets = useMemo(() => {
-    return openMarkets.filter((m) => marketFilter === "all" || m.asset_symbol === marketFilter).slice(0, 16);
+    return openMarkets.filter((m) => marketFilter === "all" || assetGroup(m.asset_symbol) === marketFilter).slice(0, 16);
   }, [openMarkets, marketFilter]);
 
   const openPositions = (summary?.positions ?? []).filter((p) => p.status !== "resolved" && p.status !== "cancelled");
@@ -230,6 +243,7 @@ export default function Dashboard() {
       )}
 
       {/* ── POLYMARKET STYLE HERO SECTION (Featured Spotlight + Trending Leaderboard) ── */}
+      {markets === null && <SkelPolyHero />}
       {activeFeatured && (
         <div className="poly-hero">
           {/* Main Hero Spotlight Card */}
@@ -464,7 +478,7 @@ export default function Dashboard() {
 
       {/* Content Rendering: Grid vs Table */}
       {markets === null ? (
-        <SkelBoard rows={4} />
+        viewMode === "grid" ? <SkelMarketGrid count={6} /> : <SkelBoard rows={4} />
       ) : gridMarkets.length > 0 ? (
         viewMode === "grid" ? (
           <div className="poly-market-grid">

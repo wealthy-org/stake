@@ -234,6 +234,72 @@ export function SkelStats() {
   );
 }
 
+/** Mirrors the Home dashboard's .poly-hero (featured spotlight + trending leaderboard) so it doesn't just vanish while markets load. */
+export function SkelPolyHero() {
+  return (
+    <div className="poly-hero">
+      <div className="poly-featured-card">
+        <div className="poly-featured-header skel-row" style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <Skel width={120} height={16} />
+          <Skel width={80} height={16} />
+        </div>
+        <Skel width="85%" height={26} style={{ margin: "14px 0" }} />
+        <div className="poly-odds-row">
+          <Skel height={64} radius={10} />
+          <Skel height={64} radius={10} />
+        </div>
+        <Skel width="100%" height={180} radius={8} style={{ marginTop: 16 }} />
+        <div className="poly-featured-bet-btns" style={{ marginTop: 16 }}>
+          <Skel height={44} radius={10} />
+          <Skel height={44} radius={10} />
+        </div>
+      </div>
+      <div className="poly-trending-card">
+        <div className="trending-head skel-row" style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <Skel width={90} height={16} />
+          <Skel width={60} height={14} />
+        </div>
+        <ul className="trending-list">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <li key={i} className="skel-row" style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: "10px 0" }}>
+              <Skel width={18} height={14} />
+              <Skel width={28} height={28} radius={99} />
+              <Skel width="50%" height={14} />
+              <Skel width={50} height={12} style={{ marginLeft: "auto" }} />
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+/** Mirrors the Home dashboard's .poly-market-grid card layout (not the row-table SkelBoard uses) so grid view doesn't jump when real cards swap in. */
+export function SkelMarketGrid({ count = 6 }: { count?: number }) {
+  return (
+    <div className="poly-market-grid">
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} className="poly-market-card skel-row">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Skel width={24} height={24} radius={99} />
+              <Skel width={70} height={13} />
+            </div>
+            <Skel width={40} height={16} radius={99} />
+          </div>
+          <Skel width="90%" height={18} style={{ marginTop: 10 }} />
+          <Skel width="60%" height={18} style={{ marginTop: 6 }} />
+          <Skel width="100%" height={8} radius={4} style={{ marginTop: 14 }} />
+          <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+            <Skel height={40} radius={8} style={{ flex: 1 }} />
+            <Skel height={40} radius={8} style={{ flex: 1 }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function SkelProof() {
   return (
     <div className="record">

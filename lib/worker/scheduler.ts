@@ -7,6 +7,13 @@ const TICK_INTERVAL_MS = 15_000;
 let started = false;
 let tickInFlight = false;
 
+// Temporarily off: Polymarket open/close timing means a real new market
+// can take days to appear, which is too slow to iterate on while testing.
+// Kept in place (not deleted) — flip back to true once auto-creation from
+// live Polymarket data should resume, or call ensureAutoMarkets()
+// manually/from an admin action in the meantime.
+const AUTO_CREATE_MARKETS = false;
+
 async function tick(): Promise<void> {
   // Guard against overlapping ticks: if one tick runs longer than the
   // 15s interval (easy to happen once ensureAutoMarkets' per-asset
@@ -52,7 +59,7 @@ async function tickOnce(): Promise<void> {
     }
 
     // Keeps the board non-empty with zero admin action — see lib/engine/autoMarket.ts.
-    await ensureAutoMarkets();
+    if (AUTO_CREATE_MARKETS) await ensureAutoMarkets();
 
     // Notional bettors keep volumes moving — see lib/engine/bots.ts.
     await runBotTick().catch((err) => console.error("[worker] bot tick failed:", err));

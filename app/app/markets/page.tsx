@@ -10,6 +10,19 @@ type Tab = "open" | "wait" | "done" | "all";
 
 const PAGE_SIZE = 12;
 
+// Legacy per-asset tickers from the old price-threshold generator — folded
+// into whichever Polymarket launch category they actually belong to
+// (CRYPTO for coins, FINANCE for single-stock price questions — that's
+// how Polymarket itself buckets equities, not under Tech) so the filter
+// bar doesn't show BTC/ETH/SOL/AAPL/NVDA/GOOGL/TSLA as separate chips.
+const CRYPTO_TICKERS = new Set(["BTC", "ETH", "SOL"]);
+const STOCK_TICKERS = new Set(["AAPL", "NVDA", "GOOGL", "TSLA"]);
+function assetGroup(symbol: string): string {
+  if (CRYPTO_TICKERS.has(symbol)) return "CRYPTO";
+  if (STOCK_TICKERS.has(symbol)) return "FINANCE";
+  return symbol;
+}
+
 const TABS: [Tab, string][] = [
   ["all", "All"],
   ["open", "Open"],
@@ -58,7 +71,7 @@ export default function MarketsPage() {
         tab === "open" ? m.status === "open" :
         tab === "wait" ? m.status === "locked" || m.status === "resolution_pending" :
         m.status === "resolved" || m.status === "cancelled";
-      const assetOk = asset === "all" || m.asset_symbol === asset;
+      const assetOk = asset === "all" || assetGroup(m.asset_symbol) === asset;
       const q = search.trim().toLowerCase();
       const searchOk = !q || m.question.toLowerCase().includes(q) || m.asset_symbol.toLowerCase().includes(q);
       return tabOk && assetOk && searchOk;
@@ -80,7 +93,7 @@ export default function MarketsPage() {
 
   const assets = useMemo(() => {
     if (!markets) return ["all"];
-    const unique = Array.from(new Set(markets.map((m) => m.asset_symbol))).sort();
+    const unique = Array.from(new Set(markets.map((m) => assetGroup(m.asset_symbol)))).sort();
     return ["all", ...unique];
   }, [markets]);
 

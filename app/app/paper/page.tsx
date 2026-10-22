@@ -334,63 +334,71 @@ export default function PaperPage() {
     <>
       <OnChainVaultSection />
 
-      <div className="certbig">
-        <div className="k">Certificate of ownership</div>
-        <h1>{Math.round(supply).toLocaleString("en-US")}</h1>
-        <p>
-          Legacy DB-ledger model (pre-Pons pivot): STAKE entered supply through verified realized losses, with no
-          team allocation and no premint. Kept here as a record of the original mint-based design — see the
-          points+vault pilot above for the current direction.
-        </p>
-        <span className="serial">Supply today (legacy)</span>
-        <span className="stamp gold">{paper.transfersEnabled ? "Transfers enabled" : "Transfers locked"}</span>
-      </div>
+      <details className="legacy-archive" style={{ marginTop: 36 }}>
+        <summary>
+          <span className="k" style={{ fontSize: 11 }}>Archived · pre-Pons model</span>
+          <b>Legacy mint-based STAKE ledger</b>
+          <span className="chev">▾</span>
+        </summary>
 
-      <div className="zeros">
-        <div>
-          <small>Genesis supply</small>
-          <b>0</b>
+        <div className="certbig" style={{ marginTop: 18 }}>
+          <div className="k">Certificate of ownership</div>
+          <h1>{Math.round(supply).toLocaleString("en-US")}</h1>
+          <p>
+            Legacy DB-ledger model (pre-Pons pivot): STAKE entered supply through verified realized losses, with no
+            team allocation and no premint. Kept here as a record of the original mint-based design — see the
+            points+vault pilot above for the current direction.
+          </p>
+          <span className="serial">Supply today (legacy)</span>
+          <span className="stamp gold">{paper.transfersEnabled ? "Transfers enabled" : "Transfers locked"}</span>
         </div>
-        <div>
-          <small>Team allocation</small>
-          <b>0</b>
-        </div>
-        <div>
-          <small>VC allocation</small>
-          <b>0</b>
-        </div>
-        <div>
-          <small>Airdrop</small>
-          <b>0</b>
-        </div>
-      </div>
 
-      <div className="two">
-        <div className="blk">
-          <h3>Emission rate</h3>
-          <p style={{ fontSize: 14 }}>
-            Cumulative realized losses so far are {usd(cumulativeLoss, 0)}. The rate for each dollar of net loss
-            falls as that total grows.
-          </p>
-          <EmissionCurve cumulativeLoss={cumulativeLoss} rate={paper.currentEmissionRatePerDollar} />
-          <p className="note">
-            Illustrative curve shape. Real tiers (testnet-only, not approved mainnet tokenomics — brief §16):
-            100 STAKE/$ up to $100K, 40/$ to $1M, 10/$ to $10M, 3/$ beyond.
-          </p>
+        <div className="zeros">
+          <div>
+            <small>Genesis supply</small>
+            <b>0</b>
+          </div>
+          <div>
+            <small>Team allocation</small>
+            <b>0</b>
+          </div>
+          <div>
+            <small>VC allocation</small>
+            <b>0</b>
+          </div>
+          <div>
+            <small>Airdrop</small>
+            <b>0</b>
+          </div>
         </div>
-        <div className="blk">
-          <h3>Genesis progress</h3>
-          <ul className="tl">
-            {MILESTONES(totalWagered, cumulativeLoss, uniqueBettors, markets.length, paper.transfersEnabled).map(([label, done]) => (
-              <li key={label} className={done ? "done" : ""}>
-                <i></i>
-                <b>{label}</b>
-                <small>{done ? "Reached" : "Not yet"}</small>
-              </li>
-            ))}
-          </ul>
+
+        <div className="two">
+          <div className="blk">
+            <h3>Emission rate</h3>
+            <p style={{ fontSize: 14 }}>
+              Cumulative realized losses so far are {usd(cumulativeLoss, 0)}. The rate for each dollar of net loss
+              falls as that total grows.
+            </p>
+            <EmissionCurve cumulativeLoss={cumulativeLoss} rate={paper.currentEmissionRatePerDollar} />
+            <p className="note">
+              Illustrative curve shape. Real tiers (testnet-only, not approved mainnet tokenomics — brief §16):
+              100 STAKE/$ up to $100K, 40/$ to $1M, 10/$ to $10M, 3/$ beyond.
+            </p>
+          </div>
+          <div className="blk">
+            <h3>Genesis progress</h3>
+            <ul className="tl">
+              {MILESTONES(totalWagered, cumulativeLoss, uniqueBettors, markets.length, paper.transfersEnabled).map(([label, done]) => (
+                <li key={label} className={done ? "done" : ""}>
+                  <i></i>
+                  <b>{label}</b>
+                  <small>{done ? "Reached" : "Not yet"}</small>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
-      </div>
+      </details>
     </>
   );
 }
