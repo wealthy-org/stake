@@ -38,6 +38,15 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ cond
       liquidity: Number(m.liquidity ?? 0),
       endDate: m.endDate ?? null,
       polymarketUrl: m.slug ? `https://polymarket.com/event/${m.slug}` : null,
+      // Real order-book pricing and the resolution source Polymarket itself
+      // cites, on top of the single pooled-odds number we already had —
+      // enrichment the leader asked for, scoped to what fits this panel
+      // without turning it into a dump of every Gamma field.
+      bestBid: m.bestBid != null ? Number(m.bestBid) : null,
+      bestAsk: m.bestAsk != null ? Number(m.bestAsk) : null,
+      spread: m.spread != null ? Number(m.spread) : null,
+      oneDayPriceChange: m.oneDayPriceChange != null ? Number(m.oneDayPriceChange) : null,
+      resolutionSource: m.resolutionSource || null,
     });
   } catch (err) {
     return fail(Object.assign(new Error((err as Error).message || "polymarket lookup failed"), { code: "POLYMARKET_UNAVAILABLE" }));

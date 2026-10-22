@@ -2,6 +2,12 @@ import { NextRequest } from "next/server";
 import { ok, fail } from "@/lib/http";
 import { getBinanceHistory, getNasdaqHistory, getPolymarketHistory, isTimeframe, type PricePoint } from "@/lib/oracle/history";
 
+// Binance blocks requests from US-region cloud IPs (HTTP 451, "restricted
+// location") — Vercel's default serverless region is US (iad1), so every
+// Binance-sourced fetch from this route failed in production while working
+// fine locally. Pinning this route to Singapore avoids the block.
+export const preferredRegion = "sin1";
+
 /**
  * Public price history for the market detail chart. No DB involved —
  * proxies real market data (Binance klines for crypto, Nasdaq chart for

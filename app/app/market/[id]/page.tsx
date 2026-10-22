@@ -35,6 +35,11 @@ interface PolymarketInfo {
   liquidity: number;
   endDate: string | null;
   polymarketUrl: string | null;
+  bestBid: number | null;
+  bestAsk: number | null;
+  spread: number | null;
+  oneDayPriceChange: number | null;
+  resolutionSource: string | null;
 }
 
 function shortAddr(a: string): string {
@@ -384,24 +389,74 @@ export default function MarketDetailPage() {
             <MarketChart market={market} />
 
             {isPolymarketSource(market.oracle_source) && polymarketInfo && (
-              <div className="zeros" style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--line)" }}>
-                <div>
-                  <small>Live odds</small>
-                  <b>{polymarketInfo.yesPrice !== null ? `${Math.round(polymarketInfo.yesPrice * 100)}% YES` : "—"}</b>
+              <>
+                <div className="zeros" style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--line)" }}>
+                  <div>
+                    <small>Live odds</small>
+                    <b>
+                      {polymarketInfo.yesPrice !== null ? `${Math.round(polymarketInfo.yesPrice * 100)}% YES` : "—"}
+                      {polymarketInfo.oneDayPriceChange !== null && (
+                        <span
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 600,
+                            marginLeft: 6,
+                            color: polymarketInfo.oneDayPriceChange >= 0 ? "var(--yes)" : "var(--no)",
+                          }}
+                        >
+                          {polymarketInfo.oneDayPriceChange >= 0 ? "+" : ""}
+                          {(polymarketInfo.oneDayPriceChange * 100).toFixed(1)}pp · 24h
+                        </span>
+                      )}
+                    </b>
+                  </div>
+                  <div>
+                    <small>Total volume</small>
+                    <b>{usd(polymarketInfo.volume, 0)}</b>
+                  </div>
+                  <div>
+                    <small>24h volume</small>
+                    <b>{usd(polymarketInfo.volume24hr, 0)}</b>
+                  </div>
+                  <div>
+                    <small>Liquidity</small>
+                    <b>{usd(polymarketInfo.liquidity, 0)}</b>
+                  </div>
+                  {polymarketInfo.bestBid !== null && polymarketInfo.bestAsk !== null && (
+                    <div>
+                      <small>Best bid / ask</small>
+                      <b>
+                        {(polymarketInfo.bestBid * 100).toFixed(1)}¢ / {(polymarketInfo.bestAsk * 100).toFixed(1)}¢
+                      </b>
+                    </div>
+                  )}
+                  {polymarketInfo.spread !== null && (
+                    <div>
+                      <small>Spread</small>
+                      <b>{(polymarketInfo.spread * 100).toFixed(1)}¢</b>
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <small>Total volume</small>
-                  <b>{usd(polymarketInfo.volume, 0)}</b>
-                </div>
-                <div>
-                  <small>24h volume</small>
-                  <b>{usd(polymarketInfo.volume24hr, 0)}</b>
-                </div>
-                <div>
-                  <small>Liquidity</small>
-                  <b>{usd(polymarketInfo.liquidity, 0)}</b>
-                </div>
-              </div>
+
+                {polymarketInfo.description && (
+                  <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--line)" }}>
+                    <small style={{ display: "block", marginBottom: 6, color: "var(--ink2)" }}>Resolution criteria</small>
+                    <p style={{ fontSize: 13.5, lineHeight: 1.55, color: "var(--ink2)", whiteSpace: "pre-line" }}>
+                      {polymarketInfo.description}
+                    </p>
+                    {polymarketInfo.resolutionSource && (
+                      <a
+                        href={polymarketInfo.resolutionSource}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ fontSize: 12.5, display: "inline-block", marginTop: 8 }}
+                      >
+                        Resolution source ↗
+                      </a>
+                    )}
+                  </div>
+                )}
+              </>
             )}
 
           </div>

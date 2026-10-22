@@ -4,6 +4,56 @@ Status: pilot sudah jalan di **Robinhood Chain Testnet (chain ID 46630)**, bukan
 
 ---
 
+## 0. REVISI MILENIA — Reward Poin Untuk Pemain Yang Kalah (Baca Ini Dulu)
+
+Keputusan produk sudah dikunci dan **berlaku surut menggantikan pola vault lama** di bagian 3.3:
+
+> **1 poin = $1 anggaran pembelian STAKE.** Rasio poin → STAKE dikunci per batch berdasarkan hasil
+> pembelian treasury. Poin **habis** saat dikonversi. Pemain mengklaim jumlah STAKE yang **sudah dialokasikan**.
+
+### 0.1 Mekanisme
+
+1. **Penerbitan poin.** Market selesai + final → kontrak hitung kerugian bersih per wallet → rugi bersih $10 = 10 poin. Tanpa rugi bersih = tanpa poin. Poin dicatat sekali per hasil yang memenuhi syarat; satuan dan desimal konsisten dengan aset taruhan.
+2. **Sumber dana.** Dana reward **terpisah** (pendapatan protokol / creator fee yang masuk treasury / alokasi khusus). Dana pembayaran pemenang **tidak boleh** dihitung ulang sebagai dana reward. 1.000 poin diterbitkan = kewajiban pembelian $1.000. Belum ada dana → poin berstatus **"menunggu pembelian"**, bukan "siap diklaim".
+3. **Konversi (batch).** Sekali sehari (atau serupa): ambil daftar poin yang belum dikonversi → treasury sediakan dana senilai total poin → **beli STAKE di tempat token diperdagangkan** (bonding curve Pons V2 sebelum graduation, pool **Uniswap v4** sesudahnya) → pakai **jumlah token yang benar-benar diterima** (setelah fee + dampak harga) sebagai dasar pembagian. Harga UI/market cap bukan harga final konversi.
+4. **Alokasi & konsumsi poin.** Contoh: batch 100 poin, treasury belanja $100 → dapat 2.000 STAKE → 100 poin di batch itu **ditandai terpakai (habis)** dan **tidak pernah** ikut batch lain; 2.000 STAKE dicatat sebagai jatah pemain dan **tidak boleh** dipakai batch lain. Pembelian gagal / dana kurang → poin tetap menunggu; **jangan menghapus poin** atau diam-diam mengubah nilai $1/poin.
+5. **Klaim.** Tombol Claim **hanya mengirimkan STAKE yang sudah dialokasikan** — tidak ada pembelian baru saat tombol ditekan. Jatah terkunci di jumlah konversi; naik/turun harga sesudahnya tidak mengubah jumlah token (hanya nilai pasar).
+6. **Tampilan produk — tiga angka wajib terpisah:**
+   - **Poin menunggu pembelian** (mis. 10 poin, anggaran $10)
+   - **STAKE siap diklaim** (mis. 200 STAKE, hasil alokasi batch)
+   - **STAKE sudah diklaim** (sudah dikirim ke wallet)
+   - Dilarang kalimat "10 poin = 10 STAKE" atau menjanjikan jumlah token sebelum pembelian. Riwayat batch menampilkan: dana dibelanjakan, token diterima, rasio konversi, waktu, tx hash.
+7. **Pengujian do: satu alur utuh** bet → final → rugi bersih → poin → pendanaan → pembelian → alokasi → klaim; plus klaim ganda, batch gagal, dana kurang, harga bergerak saat transaksi, poin baru setelah batch dimulai, dan perpindahan bonding curve → pool.
+
+### 0.2 Peta perubahan vs pola vault lama
+
+| Aspek | Pola lama (laporan §3.3) | Revisi ini |
+|---|---|---|
+| Arti 1 poin | Bagian **proporsional** dari setiap setoran vault | **Anggaran pembelian $1** |
+| Treasury beli STAKE | Beli → setor → dibagi ke semua pemegang poin | Beli untuk **memenuhi poin batch tertentu** |
+| Hitung token | Setoran × poin ÷ total poin saat setor | **Hasil pembelian nyata**: $10 → 200 STAKE → 10 poin = 200 STAKE |
+| Pengaruh harga STAKE | Mengubah porsi, $1/poin implisit | **Menentukan jumlah token per poin**: makin mahal, makin sedikit |
+| Nasib poin pasca-klaim | `accRewardPerPoint` terus berlaku → poin lama bisa ikut setoran berikutnya | **Poin habis saat dikonversi** — tidak dapat reward berulang |
+| Tombol Claim | Ambil bagian dari akumulasi vault | Ambil **jatah STAKE yang sudah ditetapkan** |
+| Treasury belum beli | Klaim = 0 | Poin **menunggu pembelian**, belum berubah jadi token |
+
+### 0.3 Status kode terhadap revisi ini
+
+- `contracts/src/RewardVault.sol` **sudah ditulis ulang** ke model batch: `pendingPoints`, `allocatedStake`, `BatchRecord` (budget terpakai, `conversionRatio`, timestamp, tx hash), metrik `totalPointsBurned`/`totalPointsConverted`, dan masih menyediakan entry **IEmissionController-compatible** supaya `PaperBetMarket` bisa menunjuk ke sana.
+- Pola `accRewardPerPoint` (bagian 3.3) sudah **tidak dipakai lagi** — anggap bagian itu sebagai catatan sejarah.
+- Sisa pekerjaan lihat bagian **8 (Backlog Revisi)**.
+
+### 0.4 Kalau ada perubahan lagi, bisa di-update di smart contract? — Bisa, tapi begini
+
+**Yang bebas diganti (belum terpasang):** skrip deploy, parameter factory, dan kode `RewardVault.sol` itu sendiri. Upgrade logika = deploy vault baru + tunjuk factory untuk market berikutnya ke vault itu — biaya nyata hampir nol di testnet.
+
+**Yang terkunci di market pilot:** `PaperBetMarket.emissionController` adalah **state variable biasa yang dipasang sekali di constructor dan tidak punya setter** (`src/PaperBetMarket.sol:34`, diisi di baris 111; satu-satunya setter manajemen cuma `setProtocolPause`). Artinya:
+1. Market pilot yang sudah terdeploy **tidak bisa dipindah** dan pasar baru saja.
+2. Jalurnya **deploy ulang penuh alur pilot** (murah di testnet, cuma 1 market): deploy `RewardVault` baru → deploy `PaperBetFactory` baru yang menunjuk vault baru → buat 1 market pilot dari factory itu. Poin yang sudah tercatat di vault lama **diimpor**: backend membaca `pendingPoints` per wallet dari v1, admin memasukkannya ke vault baru lewat fungsi seeding supaya pemain tidak kehilangan poin.
+3. Untuk mainnet, pertimbangkan **upgradeable proxy** atau setter `setEmissionController` dengan role + timelock supaya revisi berikutnya tidak memaksa deploy ulang market.
+
+---
+
 ## 1. Ringkasan buat yang pusing/belum ngerti
 
 Ada **3 istilah** yang sering bikin bingung — ini dulu baru lanjut:
@@ -11,10 +61,12 @@ Ada **3 istilah** yang sering bikin bingung — ini dulu baru lanjut:
 | Istilah | Artinya |
 |---|---|
 | **mUSDG** | "Mock USDG" — token tiruan buat testnet, dipakai sebagai uang taruhan. Siapa aja bisa bikin sendiri lewat tombol faucet, nggak perlu nunggu admin. |
-| **Points (poin)** | Catatan internal "kamu rugi bersih sekian dollar". **Bukan token**, nggak bisa dijual, cuma tiket buat nuker token nanti. |
-| **STAKE (reward token)** | Token beneran yang bisa dijual. Didapat dengan **nukerin poin** ke Reward Vault, dibatasi sama berapa banyak yang udah disetor ke vault itu. |
+| **Points (poin)** | Catatan internal "kamu rugi bersih sekian dollar". **Bukan token**, nggak bisa dijual — setiap poin itu **anggaran belanja $1** yang dipakai treasury buat membeli STAKE di pasar. |
+| **STAKE (reward token)** | Token beneran yang bisa dijual. Dapat dari **batch pembelian treasury**: token yang benar-benar dibeli dialokasikan ke pemilik poin sesuai rasio konversi batch itu. |
 
-Alurnya: **Bet pakai mUSDG → kalah net-rugi → dapat Poin → tukerin Poin di Vault → dapat STAKE (kalau vault-nya udah keisi).**
+Alurnya: **Bet pakai mUSDG → kalah net-rugi → dapat Poin → batch pembelian treasury di pasar → KLAIM jatah STAKE yang sudah dialokasikan.**
+
+> **Catatan:** panduan testing di bagian 6 masih memakai vault pilot lama (pola akumulator) yang memang sudah terpasang di testnet. Vault revisi (model batch, bagian 0) sudah ditulis tapi belum dideploy ulang — lihat bagian 0.4 dan 9.
 
 ---
 
@@ -65,9 +117,13 @@ Kalau nanti mau beneran pindah SEMUA market ke on-chain (bukan cuma pilot), itu 
 
 ### 3.2 Kenapa `PaperBetMarket.sol` Tidak Perlu Diubah
 
-`PaperBetMarket` manggil `emissionController.claimLossReward(marketId, user, realizedLoss)` — dia nggak peduli siapa yang ada di balik alamat itu. `RewardVault.sol` dibikin supaya **bisa dipasang di slot yang sama persis**, tinggal isi `realizedLoss` jadi poin (1:1, $1 rugi = 1 poin) alih-alih mencetak token. **Tidak ada migrasi/redeploy market yang dibutuhkan.**
+`PaperBetMarket` manggil `emissionController.claimLossReward(marketId, user, realizedLoss)` — dia nggak peduli siapa yang ada di balik alamat itu. `RewardVault.sol` dibikin supaya **bisa dipasang di slot yang sama persis**, tinggal isi `realizedLoss` jadi poin (1:1, $1 rugi = 1 poin) alih-alih mencetak token.
 
-### 3.3 Cara Kerja Pembagian Vault (Accumulator Pattern)
+> **Status bagian ini pasca-revisi:** kompatibilitas slot **masih berlaku** untuk market baru, tapi kalimat "tidak ada redeploy yang dibutuhkan" **kedaluwarsa** — market pilot yang sudah terpasang tidak bisa dipindah ke vault baru (tidak ada setter), jadi pilot perlu di-deploy ulang dengan vault revisi. Lihat bagian **0.4**.
+
+### 3.3 Cara Kerja Pembagian Vault (Accumulator Pattern) — **POLA LAMA, SUDAH DIGANTI**
+
+> Revisi (bagian 0) mengganti pola ini dengan **batch konversi**: poin = anggaran $1, masuk satu batch, habis saat terkonversi; poin lama **tidak** menerima bagian dari setoran berikutnya. Catatan di bawah dipertahankan sebagai sejarah desain.
 
 Pola standar DeFi (dipakai di SushiBar, MasterChef, Synthetix) — supaya adil tanpa perlu hitung manual tiap orang:
 
@@ -165,3 +221,17 @@ Sekarang semua error wallet diterjemahin ke bahasa biasa:
 - 25 total test kontrak Solidity — semua lolos.
 - Transaksi swap beneran di Uniswap v4 testnet (bukan simulasi) — ada tx hash-nya.
 - Market pilot on-chain sudah bisa dites dari UI oleh siapa aja, nggak perlu command line.
+
+---
+
+## 9. Backlog Revisi — Urutan Kerja Berikutnya
+
+Urutannya disusun supaya setiap langkah bisa dites terpisah (sesuai syarat pengujian di bagian 7):
+
+1. **Deploy ulang alur pilot dengan vault revisi**: `RewardVault` (model batch) → `PaperBetFactory` baru → 1 market pilot baru. Market lama dibiarkan tetap sebagai registri sejarah.
+2. **Import poin lama**: baca `pendingPoints` per wallet dari vault v1, seeding ke vault baru lewat fungsi admin — pemain tidak kehilangan poin.
+3. **Executor batch harian** (backend/worker): kumpulkan poin yang belum dikonversi → sediakan dana treasury senilai $1/poin → panggil `executeBatch` vault → catat `conversionRatio` nyata dari hasil pembelian (jangan dari harga UI). Tx gagal = batch dibatalkan, poin tetap menunggu.
+4. **Pemisahan dana reward** di treasury: saldo reward dipisah dari dana kemenangan; tambahkan pemeriksaan "1.000 poin = kewajiban $1.000 ada saldonya" sebelum batch jalan; kalau kurang → batch skip, poin tetap "menunggu pembelian".
+5. **UI STAKE page** (`/app/paper`): pastikan tiga angka (poin menunggu pembelian / STAKE siap diklaim / STAKE sudah diklaim) terbaca jelas dan tidak ada copy yang menyamakan poin dengan jumlah token. Sertakan riwayat batch: dana dibelanjakan, token diterima, rasio, waktu, tx hash.
+6. **Pengujian penuh** (satu alur + failure paths): klaim ganda, pembelian gagal, dana kurang, harga bergerak saat transaksi, poin muncul setelah batch dimulai, dan perpindahan bonding curve → pool Uniswap v4 pas graduation.
+7. **Keamanan mainnet**: putuskan upgradeable proxy vs setter `setEmissionController` (role + timelock), lalu audit.

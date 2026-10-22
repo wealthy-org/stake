@@ -100,8 +100,8 @@ export default function LandingPage() {
     }
   };
 
-  // Genesis counter split-flap spinning state — spins up to the real
-  // current $STAKE supply (minted against verified losses), not a fixed 0.
+  // Genesis counter split-flap spinning state — spins up to the live $STAKE
+  // supply read from the pilot contracts, not a fixed 0.
   const [counterDigits, setCounterDigits] = useState<string[]>(
     "000,000,000".split("")
   );
@@ -980,7 +980,8 @@ export default function LandingPage() {
                   </span>
                 </h1>
                 <p className="lede rise" style={{ "--d": "240ms" } as any}>
-                  No premint. No insider head start. Verified losses create new tokens.
+                  No premint. No insider head start. Verified losses earn Points — every point is a $1 budget the
+                  treasury spends buying STAKE for you on the open market.
                 </p>
 
                 <dl className="landing-ledger rise" style={{ "--d": "300ms" } as any}>
@@ -994,7 +995,7 @@ export default function LandingPage() {
                     <dt>Investor allocation</dt><i /><dd>0</dd>
                   </div>
                   <div>
-                    <dt>New supply</dt><i /><dd>Minted against verified losses</dd>
+                    <dt>Rewards</dt><i /><dd>Points buy STAKE · $1 per point</dd>
                   </div>
                 </dl>
 
@@ -1024,7 +1025,7 @@ export default function LandingPage() {
                     </div>
                     <div className="strip">
                       <span>Unit · protocol tokens</span>
-                      <span>Emission curve open</span>
+                      <span>Treasury-funded rewards</span>
                     </div>
                   </div>
                 </div>
@@ -1032,7 +1033,7 @@ export default function LandingPage() {
             </div>
 
             <div className="page-foot">
-              <span>Emission curve, token rights and transfer rules remain open.</span>
+              <span>Reward batches, conversion ratios and token rights remain open.</span>
               <button className="next" onClick={() => navigateTo("docs")}>
                 Protocol documentation <span className="arr" aria-hidden="true">→</span>
               </button>
@@ -1396,9 +1397,11 @@ export default function LandingPage() {
                 </p>
               </details>
               <details>
-                <summary>Who can mint tokens<span className="pm" aria-hidden="true">+</span></summary>
+                <summary>How rewards are earned<span className="pm" aria-hidden="true">+</span></summary>
                 <p>
-                  The intended model starts at zero supply with no premint. Only an emission controller can mint against verified eligible losses. Admin permissions do not provide a back door to issuance.
+                  No token is ever minted against a loss. Verified net losses record Points — each point is a $1
+                  purchase budget. Treasury batches buy STAKE on the open market and allocate the received tokens
+                  pro-rata; points are consumed at conversion. The Claim button only transfers already-allocated STAKE.
                 </p>
               </details>
               <details>
