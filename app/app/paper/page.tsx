@@ -6,16 +6,17 @@ import { getPaperSummary, getStats, listMarkets } from "@/lib/client/api";
 import { collateralToNumber, paperToNumber, usd, num } from "@/lib/client/format";
 import type { PaperSummary, MarketRow, ProtocolStats } from "@/lib/client/types";
 import { useWallet, useToast } from "@/components/providers";
-import { useRewardVault } from "@/lib/web3/useMarketContract";
+import { useRewardVault, useClaimHistory } from "@/lib/web3/useMarketContract";
 import { friendlyWeb3Error } from "@/lib/web3/errors";
 import { useReadContracts } from "wagmi";
 import { rewardVaultAbi } from "@/lib/web3/abi";
+import ClaimShareCard from "@/components/ClaimShareCard";
 
 // Pilot RewardVault deployed via contracts/script/TestnetPonsSimulation.s.sol —
 // the points+vault model (fine2's "Skenario B"), separate from the legacy
 // DB-ledger emission_state read below. Swap this for the real Pons-linked
 // vault once the leader's token is live.
-const REWARD_VAULT_PILOT = "0xa5c4dD985AC3f627FA697683537d2ca02476dafb" as const;
+const REWARD_VAULT_PILOT = "0xB558f06c3557f090a5Ae1C629D42cE90be422FA6" as const;
 
 const MILESTONES = (totalWagered: number, cumulativeLoss: number, bettors: number, marketsCreated: number, transfersEnabled: boolean) => [
   ["First market", marketsCreated > 0 ? 1 : 0],
@@ -136,6 +137,7 @@ function BatchHistorySection({ vaultAddress, count }: { vaultAddress: `0x${strin
 function OnChainVaultSection() {
   const { address, isOnChain } = useWallet();
   const toast = useToast();
+  const [shareAmount, setShareAmount] = useState<number | null>(null);
   const {
     totalPendingPoints,
     totalPointsSettled,
@@ -148,6 +150,7 @@ function OnChainVaultSection() {
     claimFromVault,
     claiming,
   } = useRewardVault(REWARD_VAULT_PILOT);
+  const { claims: claimHistory, loading: claimHistoryLoading, refetch: refetchClaimHistory } = useClaimHistory(REWARD_VAULT_PILOT);
 
   const pendingPointsNum = toUnitNumber(myPendingPoints);
   const allocatedStakeNum = toUnitNumber(myAllocatedStake);
@@ -159,135 +162,151 @@ function OnChainVaultSection() {
   const totalClaimedStakeNum = toUnitNumber(totalStakeClaimed);
   const batchCount = batchHistoryCount ? Number(batchHistoryCount) : 0;
 
+  const claimable = address && isOnChain && allocatedStakeNum > 0;
+
   return (
-    <div className="blk" style={{ marginBottom: 32, border: "2px solid var(--ink)", borderRadius: 12, padding: 22, background: "var(--paper)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <span style={{ fontSize: 11, fontFamily: "var(--type)", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--desk)", fontWeight: 700, background: "var(--yes-t)", padding: "3px 8px", borderRadius: 4 }}>
-            Revised STAKE Reward System
-          </span>
-          <h2 style={{ fontSize: 22, marginTop: 8, marginBottom: 4, color: "var(--ink)" }}>
-            Net-Loss Points Reward
-          </h2>
-          <p style={{ fontSize: 13.5, color: "var(--ink2)", maxWidth: 740, lineHeight: 1.5 }}>
-            Players who end up net-negative on Stake markets earn <b>points</b>. Every <b>1 point represents a $1 budget</b> for the treasury to buy STAKE on the open market (Pons V2 / Uniswap v4). Points are consumed once a purchase batch completes.
-          </p>
+    <>
+      <div className="certbig">
+        <div className="k">STAKE reward</div>
+        <h1>{address ? num(allocatedStakeNum, 2) : "—"}</h1>
+        <p>
+          Net-loss points reward: players who end up net-negative on Stake markets earn points, each worth a $1
+          treasury budget to buy STAKE on the open market (Pons V2 / Uniswap v4). This is your locked-in STAKE
+          allocation from completed purchase batches, ready to claim.
+        </p>
+        <span className="serial">STAKE ready to claim</span>
+        <span className={"stamp" + (claimable ? " gold" : " acc")}>{claimable ? "Claimable" : "Pending"}</span>
+      </div>
+
+      {address && isOnChain && (
+        <div style={{ textAlign: "center", marginTop: -16, marginBottom: 28 }}>
+          <button
+            className="btn gold"
+            disabled={claiming || allocatedStakeNum <= 0}
+            onClick={async () => {
+              const claimedNow = allocatedStakeNum;
+              try {
+                await claimFromVault();
+                toast("STAKE claimed to your wallet!");
+                setShareAmount(claimedNow);
+                setTimeout(refetchClaimHistory, 2500);
+              } catch (err) {
+                toast(friendlyWeb3Error(err));
+              }
+            }}
+          >
+            {claiming ? "Sending STAKE…" : allocatedStakeNum > 0 ? `Claim ${num(allocatedStakeNum, 2)} STAKE` : "No Tokens Ready To Claim"}
+          </button>
         </div>
-        <div style={{ textAlign: "right" }}>
-          <span style={{ fontSize: 11, color: "var(--ink3)", display: "block" }}>Pilot RewardVault Contract</span>
-          <code style={{ fontSize: 11, fontFamily: "var(--type)", color: "var(--ink2)" }}>
-            {REWARD_VAULT_PILOT.slice(0, 8)}...{REWARD_VAULT_PILOT.slice(-6)}
-          </code>
+      )}
+
+      {shareAmount !== null && (
+        <ClaimShareCard
+          amount={shareAmount}
+          batchId={batchCount > 0 ? batchCount - 1 : null}
+          onClose={() => setShareAmount(null)}
+        />
+      )}
+
+      {/* 3 headline status figures per brief §5 — this wallet's own standing */}
+      <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink3)", marginBottom: 8 }}>
+        Your STAKE
+      </p>
+      <div className="zeros" style={{ gridTemplateColumns: "repeat(3,1fr)" }}>
+        <div>
+          <small>Points pending purchase</small>
+          <b>{address ? num(pendingPointsNum, 2) : "—"} Points</b>
+        </div>
+        <div>
+          <small>STAKE ready to claim</small>
+          <b>{address ? num(allocatedStakeNum, 2) : "—"} STAKE</b>
+        </div>
+        <div>
+          <small>STAKE already claimed</small>
+          <b>{address ? num(claimedStakeNum, 2) : "—"} STAKE</b>
         </div>
       </div>
 
-      {/* 3 headline status figures per brief §5 */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16, marginTop: 20 }}>
-        {/* 1. Points pending purchase */}
-        <div style={{ background: "var(--slip)", border: "1.5px solid var(--line)", borderRadius: 10, padding: 18 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink2)" }}>
-              Points Pending Purchase
-            </span>
-            <span style={{ fontSize: 10.5, padding: "2px 7px", borderRadius: 4, background: "#FFF3CD", color: "#856404", fontWeight: 700 }}>
-              Treasury Queue
-            </span>
-          </div>
-          <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "var(--display)", color: "var(--ink)" }}>
-            {address ? num(pendingPointsNum, 2) : "—"}{" "}
-            <span style={{ fontSize: 15, fontWeight: 500, color: "var(--ink2)" }}>Points</span>
-          </div>
-          <p style={{ fontSize: 13, color: "var(--ink2)", marginTop: 6, marginBottom: 0 }}>
-            Equivalent purchase budget: <b>{address ? usd(pendingPointsNum, 2) : "—"}</b>
-          </p>
-          <p style={{ fontSize: 11, color: "var(--ink3)", marginTop: 8, lineHeight: 1.4 }}>
-            Waiting on the treasury to fund and execute a market buy. Points have not yet converted to tokens.
-          </p>
-        </div>
+      {!isOnChain && (
+        <p className="note" style={{ marginTop: -6, marginBottom: 20 }}>
+          Connect a wallet on Robinhood Chain Testnet to see your net-loss points and claim your STAKE allocation.
+        </p>
+      )}
 
-        {/* 2. STAKE ready to claim */}
-        <div style={{ background: "var(--slip)", border: "2px solid var(--desk)", borderRadius: 10, padding: 18 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--desk)" }}>
-              STAKE Ready To Claim
-            </span>
-            <span style={{ fontSize: 10.5, padding: "2px 7px", borderRadius: 4, background: "#D1E7DD", color: "#0F5132", fontWeight: 700 }}>
-              Purchase Result
-            </span>
+      {/* Per-wallet claim history — the vault only stores a running total
+          (claimedStake), so this reads individual past RewardClaimed events. */}
+      {address && isOnChain && (
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink3)", margin: 0 }}>
+              Your claim history
+            </p>
+            {claimHistoryLoading && <span style={{ fontSize: 11, color: "var(--ink3)" }}>Loading…</span>}
           </div>
-          <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "var(--display)", color: "var(--desk)" }}>
-            {address ? num(allocatedStakeNum, 2) : "—"}{" "}
-            <span style={{ fontSize: 15, fontWeight: 500, color: "var(--ink2)" }}>STAKE</span>
-          </div>
-          <p style={{ fontSize: 13, color: "var(--ink2)", marginTop: 6, marginBottom: 0 }}>
-            Your locked-in allocation from a completed treasury purchase batch.
-          </p>
-          {address && isOnChain && (
-            <button
-              className="btn sm gold"
-              style={{ marginTop: 12, width: "100%", fontWeight: 700 }}
-              disabled={claiming || allocatedStakeNum <= 0}
-              onClick={async () => {
-                try {
-                  await claimFromVault();
-                  toast("STAKE claimed to your wallet!");
-                } catch (err) {
-                  toast(friendlyWeb3Error(err));
-                }
-              }}
-            >
-              {claiming ? "Sending STAKE…" : allocatedStakeNum > 0 ? `Claim ${num(allocatedStakeNum, 2)} STAKE` : "No Tokens Ready To Claim"}
-            </button>
+          {claimHistory.length === 0 ? (
+            <p style={{ fontSize: 13, color: "var(--ink2)" }}>
+              {claimHistoryLoading ? "Checking the chain for past claims…" : "No claims yet from this wallet."}
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {claimHistory.map((c) => (
+                <div
+                  key={c.txHash}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "var(--slip)", border: "1px solid var(--line)", borderRadius: 8, fontSize: 13 }}
+                >
+                  <span>
+                    <b>{num(toUnitNumber(c.amount), 2)} STAKE</b>{" "}
+                    <span style={{ color: "var(--ink2)" }}>
+                      {c.timestamp ? new Date(c.timestamp).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : `Block #${c.blockNumber}`}
+                    </span>
+                  </span>
+                  <a
+                    href={`https://explorer.testnet.chain.robinhood.com/tx/${c.txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ fontSize: 12, fontFamily: "var(--type)" }}
+                  >
+                    {c.txHash.slice(0, 8)}...{c.txHash.slice(-6)} ↗
+                  </a>
+                </div>
+              ))}
+            </div>
           )}
         </div>
+      )}
 
-        {/* 3. STAKE already claimed */}
-        <div style={{ background: "var(--slip)", border: "1.5px solid var(--line)", borderRadius: 10, padding: 18 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink2)" }}>
-              STAKE Already Claimed
-            </span>
-            <span style={{ fontSize: 10.5, padding: "2px 7px", borderRadius: 4, background: "var(--line)", color: "var(--ink)", fontWeight: 700 }}>
-              Transferred
-            </span>
-          </div>
-          <div style={{ fontSize: 28, fontWeight: 800, fontFamily: "var(--display)", color: "var(--ink)" }}>
-            {address ? num(claimedStakeNum, 2) : "—"}{" "}
-            <span style={{ fontSize: 15, fontWeight: 500, color: "var(--ink2)" }}>STAKE</span>
-          </div>
-          <p style={{ fontSize: 13, color: "var(--ink2)", marginTop: 6, marginBottom: 0 }}>
-            Total STAKE tokens successfully withdrawn to your wallet.
-          </p>
-          <p style={{ fontSize: 11, color: "var(--ink3)", marginTop: 8, lineHeight: 1.4 }}>
-            Claiming only transfers an existing allocation. No new purchase happens when you press claim.
-          </p>
-        </div>
-      </div>
-
-      {/* Protocol & treasury summary */}
-      <div className="zeros" style={{ marginTop: 20 }}>
+      {/* Protocol-wide figures — deliberately smaller/muted than "Your STAKE" above, so the two never read as duplicates */}
+      <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--ink3)", marginTop: 4, marginBottom: 12 }}>
+        Protocol-wide totals
+      </p>
+      <div className="subzeros" style={{ marginTop: 0, marginBottom: 28 }}>
         <div>
-          <small>Total Pending Points (Global)</small>
-          <b>{num(totalPendingNum)} Points ({usd(totalPendingNum, 0)})</b>
+          <small>Total pending points (global)</small>
+          <b>{num(totalPendingNum)} Points</b>
         </div>
         <div>
-          <small>Total Points Converted</small>
+          <small>Total points converted</small>
           <b>{num(totalSettledNum)} Points</b>
         </div>
         <div>
-          <small>Total STAKE Deposited By Treasury</small>
+          <small>Total STAKE deposited by treasury</small>
           <b>{num(totalDepositedStakeNum, 2)} STAKE</b>
         </div>
         <div>
-          <small>Total STAKE Claimed</small>
+          <small>Total STAKE claimed</small>
           <b>{num(totalClaimedStakeNum, 2)} STAKE</b>
+        </div>
+        <div>
+          <small>Pilot RewardVault contract</small>
+          <b style={{ fontFamily: "var(--type)", fontSize: 14 }}>
+            {REWARD_VAULT_PILOT.slice(0, 8)}...{REWARD_VAULT_PILOT.slice(-6)}
+          </b>
         </div>
       </div>
 
-      {/* Conversion transparency note (§5) */}
-      <div style={{ marginTop: 18, padding: "12px 16px", borderRadius: 8, background: "var(--slip)", border: "1px solid var(--line)", fontSize: 12.5, color: "var(--ink2)", lineHeight: 1.5 }}>
-        <b>Conversion & STAKE Value Principles:</b>
-        <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>
+      <div style={{ padding: "14px 18px", borderRadius: 8, background: "var(--slip)", border: "1px solid var(--line)", marginBottom: 36 }}>
+        <b style={{ fontSize: 13, color: "var(--ink)" }}>Conversion &amp; STAKE value principles</b>
+        <ul style={{ margin: "8px 0 0 18px", padding: 0, fontSize: 13, color: "var(--ink2)", lineHeight: 1.6 }}>
           <li><b>Not 10 Points = 10 STAKE:</b> the amount of token you receive isn&rsquo;t fixed — it follows the treasury&rsquo;s real market purchase result, split evenly per point within that batch.</li>
           <li><b>Points expire after a batch:</b> once converted, points are burned and can no longer earn a reward from any future deposit/batch.</li>
           <li><b>Claiming is price-risk-free:</b> once a STAKE allocation is locked in, your token amount is permanently fixed until you claim it.</li>
@@ -295,20 +314,14 @@ function OnChainVaultSection() {
       </div>
 
       {/* Treasury purchase batch history */}
-      <div style={{ marginTop: 24 }}>
+      <div className="blk">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <h4 style={{ fontSize: 15, color: "var(--ink)" }}>Treasury Purchase Batch History</h4>
-          <span style={{ fontSize: 12, color: "var(--ink3)" }}>Total {batchCount} Batches Executed</span>
+          <h3 style={{ fontSize: 18, margin: 0 }}>Treasury purchase batch history</h3>
+          <span style={{ fontSize: 12, color: "var(--ink3)" }}>Total {batchCount} batches executed</span>
         </div>
         <BatchHistorySection vaultAddress={REWARD_VAULT_PILOT} count={batchCount} />
       </div>
-
-      {!isOnChain && (
-        <p className="note" style={{ marginTop: 14 }}>
-          Connect a wallet on Robinhood Chain Testnet to see your net-loss points and claim your STAKE allocation.
-        </p>
-      )}
-    </div>
+    </>
   );
 }
 

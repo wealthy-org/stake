@@ -13,4 +13,13 @@ contract FixedSupplyToken is ERC20 {
     constructor(string memory name_, string memory symbol_, uint256 totalSupply_) ERC20(name_, symbol_) {
         _mint(msg.sender, totalSupply_);
     }
+
+    /// @dev Matches MockCollateral's 6 decimals so a 1:1 sqrtPrice pool
+    /// (see TestnetPonsSimulation.s.sol) reflects a real 1:1 nominal-dollar
+    /// swap instead of silently producing dust — the 18-vs-6 decimal
+    /// mismatch the script used to "ignore" meant a $1,000 swap returned
+    /// ~0.000000997 real tokens even though the raw integer looked like 997.
+    function decimals() public pure override returns (uint8) {
+        return 6;
+    }
 }

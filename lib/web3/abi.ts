@@ -178,6 +178,15 @@ export const rewardVaultAbi = [
     inputs: [],
     outputs: [{ name: "amount", type: "uint256" }],
   },
+  {
+    name: "RewardClaimed",
+    type: "event",
+    anonymous: false,
+    inputs: [
+      { name: "user", type: "address", indexed: true },
+      { name: "amount", type: "uint256", indexed: false },
+    ],
+  },
 ] as const;
 
 export const paperBetMarketAbi = [

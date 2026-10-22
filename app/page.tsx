@@ -3,9 +3,9 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import Link from "next/link";
 import "./landing.css";
-import { getStats, getPaperSummary, listMarkets } from "@/lib/client/api";
-import { collateralToNumber, paperToNumber, usd } from "@/lib/client/format";
-import type { ProtocolStats, PaperSummary, MarketRow } from "@/lib/client/types";
+import { getStats, listMarkets } from "@/lib/client/api";
+import { collateralToNumber } from "@/lib/client/format";
+import type { ProtocolStats, MarketRow } from "@/lib/client/types";
 import { DOCS_SECTIONS, DOC_ARTICLES } from "@/lib/client/docsData";
 import MarketRow_ from "@/components/MarketRow";
 
@@ -29,12 +29,10 @@ export default function LandingPage() {
   const marketsSectionRef = useRef<HTMLElement>(null);
   const howSectionRef = useRef<HTMLElement>(null);
   const genesisSectionRef = useRef<HTMLElement>(null);
-  const genesisAnimatedRef = useRef(false);
   const [activeDocSlug, setActiveDocSlug] = useState<string>("what-is-stake");
   const [docsMobileOpen, setDocsMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [stats, setStats] = useState<ProtocolStats | null>(null);
-  const [paper, setPaper] = useState<PaperSummary | null>(null);
   const [markets, setMarkets] = useState<MarketRow[]>([]);
   const [marketTab, setMarketTab] = useState<"open" | "wait" | "done" | "all">("open");
   const [marketAsset, setMarketAsset] = useState<string>("all");
@@ -100,70 +98,6 @@ export default function LandingPage() {
     }
   };
 
-  // Genesis counter split-flap spinning state — spins up to the live $STAKE
-  // supply read from the pilot contracts, not a fixed 0.
-  const [counterDigits, setCounterDigits] = useState<string[]>(
-    "000,000,000".split("")
-  );
-
-  const genesisSupplyCount = useMemo(() => {
-    if (!paper) return null;
-    const n = Math.max(0, Math.round(paperToNumber(paper.supply)));
-    const digits = String(n).padStart(9, "0").slice(-9);
-    return `${digits.slice(0, 3)},${digits.slice(3, 6)},${digits.slice(6, 9)}`;
-  }, [paper]);
-
-  useEffect(() => {
-    if (!entered.genesis || !genesisSupplyCount || genesisAnimatedRef.current) return;
-    genesisAnimatedRef.current = true;
-
-    const COUNT = genesisSupplyCount;
-    const DIGITS = "0123456789";
-    setCounterDigits(COUNT.split("").map((c) => (c === "," ? "," : " ")));
-
-    const timers: any[] = [];
-    const baseDelay = 450;
-
-    COUNT.split("").forEach((ch, i) => {
-      if (ch === ",") return;
-
-      const stagger = baseDelay + i * 40;
-      const spins = 4 + Math.round((10 - i) / 2);
-      let count = 0;
-
-      const timeout = setTimeout(() => {
-        const interval = setInterval(() => {
-          count++;
-          if (count >= spins) {
-            clearInterval(interval);
-            setCounterDigits((prev) => {
-              const updated = [...prev];
-              updated[i] = ch;
-              return updated;
-            });
-          } else {
-            const rand = DIGITS[Math.floor(Math.random() * DIGITS.length)];
-            setCounterDigits((prev) => {
-              const updated = [...prev];
-              updated[i] = rand;
-              return updated;
-            });
-          }
-        }, 80);
-        timers.push(interval);
-      }, stagger);
-
-      timers.push(timeout);
-    });
-
-    return () => {
-      timers.forEach((t) => {
-        clearTimeout(t);
-        clearInterval(t);
-      });
-    };
-  }, [entered.genesis, genesisSupplyCount]);
-
   // Scroll-spy: mark each marketing section "entered" the first time it
   // scrolls into view (plays its reveal animation), and keep the header
   // nav's active-section highlight in sync with scroll position.
@@ -198,7 +132,6 @@ export default function LandingPage() {
   useEffect(() => {
     let active = true;
     getStats().then(setStats).catch(() => {});
-    getPaperSummary().then(setPaper).catch(() => {});
     const fetchMarkets = () => {
       listMarkets()
         .then((data) => {
@@ -290,14 +223,14 @@ export default function LandingPage() {
       home: "00 / Home",
       markets: "01 / Markets",
       how: "02 / How it works",
-      genesis: "03 / Genesis",
+      genesis: "03 / Rewards",
       docs: "04 / Documentation",
     };
     const words: Record<string, string> = {
       home: "STAKE",
       markets: "MARKETS",
       how: "HOW IT WORKS",
-      genesis: "GENESIS",
+      genesis: "REWARDS",
       docs: "DOCS",
     };
 
@@ -477,7 +410,7 @@ export default function LandingPage() {
               onClick={() => navigateTo("genesis")}
               aria-current={activePage === "genesis" ? "page" : undefined}
             >
-              Genesis
+              Rewards
             </button>
             <button
               onClick={() => navigateTo("docs")}
@@ -964,38 +897,36 @@ export default function LandingPage() {
             ref={genesisSectionRef}
           >
             <div className="kicker">
-              <b>Genesis</b>
-              <span>Proposed launch design</span>
+              <b>Rewards</b>
+              <span>How losses become STAKE</span>
             </div>
             <div className="gen">
               <div>
                 <h1 className="title" tabIndex={-1}>
                   <span className="ln" style={{ "--i": 0 } as any}>
-                    <span>Supply starts</span>
+                    <span>Losses become</span>
                   </span>
                   <span className="ln" style={{ "--i": 1 } as any}>
                     <span>
-                      <span className="mark">with you.</span>
+                      <span className="mark">points.</span>
                     </span>
                   </span>
                 </h1>
                 <p className="lede rise" style={{ "--d": "240ms" } as any}>
-                  No premint. No insider head start. Verified losses earn Points — every point is a $1 budget the
-                  treasury spends buying STAKE for you on the open market.
+                  Verified net losses earn Points. Each Point represents a $1 budget to buy STAKE. When the treasury
+                  funds a purchase, your Points convert into STAKE at the actual execution price. Claim your tokens
+                  once they&rsquo;re allocated.
                 </p>
 
                 <dl className="landing-ledger rise" style={{ "--d": "300ms" } as any}>
                   <div>
-                    <dt>Premint</dt><i /><dd>0</dd>
+                    <dt>1 Point</dt><i /><dd>$1 purchase budget</dd>
                   </div>
                   <div>
-                    <dt>Team allocation</dt><i /><dd>0</dd>
+                    <dt>Conversion</dt><i /><dd>At treasury execution</dd>
                   </div>
                   <div>
-                    <dt>Investor allocation</dt><i /><dd>0</dd>
-                  </div>
-                  <div>
-                    <dt>Rewards</dt><i /><dd>Points buy STAKE · $1 per point</dd>
+                    <dt>Claim</dt><i /><dd>After token allocation</dd>
                   </div>
                 </dl>
 
@@ -1004,7 +935,7 @@ export default function LandingPage() {
                   style={{ "--d": "360ms" } as any}
                   onClick={() => setNotesDialogOpen(true)}
                 >
-                  The genesis model
+                  The rewards model
                 </button>
               </div>
 
@@ -1012,17 +943,20 @@ export default function LandingPage() {
                 <div className="tboard-wrap" aria-hidden="true">
                   <div className="counter-in">
                     <div className="strip">
-                      <span>Initial token supply</span>
-                      <span><i className="lamp" />Genesis</span>
+                      <span>Points to STAKE</span>
+                      <span><i className="lamp" />Example</span>
                     </div>
-                    <div className="flaps" id="counter">
-                      {counterDigits.map((ch, idx) => (
-                        <span key={idx} className="cell">
-                          <span className="t"><b>{ch === " " ? "\u00A0" : ch}</b></span>
-                          <span className="b"><b>{ch === " " ? "\u00A0" : ch}</b></span>
-                        </span>
-                      ))}
-                    </div>
+                    <dl className="landing-ledger" style={{ margin: "18px 0" }}>
+                      <div>
+                        <dt>10.00</dt><i /><dd>Points</dd>
+                      </div>
+                      <div>
+                        <dt>$10.00</dt><i /><dd>Purchase budget</dd>
+                      </div>
+                      <div>
+                        <dt>STAKE amount</dt><i /><dd>Set when purchased</dd>
+                      </div>
+                    </dl>
                     <div className="strip">
                       <span>Unit · protocol tokens</span>
                       <span>Treasury-funded rewards</span>

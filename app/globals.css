@@ -45,6 +45,13 @@ p{text-wrap:pretty}
 .brand-sub{font-family:var(--type);font-size:9.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pill{display:inline-flex;align-items:center;gap:7px;padding:6px 14px;border:1px solid var(--rule);border-radius:99px;font-size:13px;color:var(--ink2);white-space:nowrap;transition:all .2s ease}
 .pill i{width:8px;height:8px;border-radius:50%;background:var(--lime);transition:all .2s ease}
+.modal-overlay{position:fixed;inset:0;background:rgba(18,19,16,.55);display:grid;place-items:center;z-index:200;padding:20px}
+.share-card-modal{background:var(--slip);border-radius:14px;max-width:640px;width:100%;box-shadow:var(--shadow);overflow:hidden}
+.share-card-hd{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line);font:700 15px var(--type)}
+.share-card-canvas-wrap{padding:16px}
+.share-card-canvas-wrap canvas{border-radius:8px;border:1px solid var(--line)}
+.share-card-actions{display:flex;gap:10px;padding:0 18px 18px;flex-wrap:wrap}
+.share-card-actions .btn{flex:1;min-width:120px}
 .icon-btn{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--rule);color:var(--ink);transition:background .2s}
 .icon-btn:hover{background:rgba(17,21,42,.06)}
 .sidebar-nav{display:flex;flex-direction:column;gap:3px}
@@ -642,7 +649,7 @@ input[type=range]{flex:1;accent-color:var(--ink);height:4px}
 /* Secondary (bid/ask, spread) — a lighter stat row, smaller type than the
    headline .zeros numbers so it doesn't inherit their 44px display font. */
 .subzeros{display:flex;gap:28px;flex-wrap:wrap;margin:-24px 0 40px}
-.subzeros>div{min-width:140px}
+.subzeros>div{flex:1 1 140px;min-width:140px}
 .subzeros small{display:block;color:var(--ink2);font-size:12.5px;margin-bottom:3px}
 .subzeros b{font:700 20px/1.2 var(--display);white-space:nowrap}
 .tl{list-style:none;padding:0}

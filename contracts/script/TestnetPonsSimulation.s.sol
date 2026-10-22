@@ -46,7 +46,9 @@ contract TestnetPonsSimulation is Script {
 
         // 1. Stand in for "the leader launches on Pons": a fixed-supply
         // token, full supply to the deployer, no mint function left.
-        FixedSupplyToken stakeToken = new FixedSupplyToken("Stake (testnet pilot)", "STAKE", 1_000_000_000e18);
+        // 6 decimals (see FixedSupplyToken.decimals()) — matches MockCollateral
+        // so the 1:1 sqrtPrice pool below reflects a real 1:1 nominal swap.
+        FixedSupplyToken stakeToken = new FixedSupplyToken("Stake (testnet pilot)", "STAKE", 1_000_000_000e6);
         MockCollateral collateral = new MockCollateral();
         collateral.mint(deployer, 1_000_002_000e6);
 

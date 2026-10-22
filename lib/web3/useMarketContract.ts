@@ -1,7 +1,7 @@
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useReadContracts } from "wagmi";
-import { parseUnits } from "viem";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useReadContracts, usePublicClient } from "wagmi";
+import { parseUnits, parseAbiItem } from "viem";
 import { paperBetMarketAbi, erc20Abi, rewardVaultAbi } from "./abi";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 /** Testnet-only self-serve faucet: anyone can mint MockCollateral (mUSDG) to their own wallet, no admin needed. */
 export function useOnChainFaucet(collateralAddress?: `0x${string}`) {
@@ -189,4 +189,66 @@ export function useRewardVault(vaultAddress?: `0x${string}`) {
       refetchAccount();
     },
   };
+}
+
+export interface ClaimHistoryEntry {
+  amount: bigint;
+  txHash: `0x${string}`;
+  blockNumber: bigint;
+  timestamp: number | null;
+}
+
+/** Per-wallet claim history, read from RewardClaimed logs — the vault itself
+ * only stores a running total (`claimedStake`), not individual past claims. */
+export function useClaimHistory(vaultAddress?: `0x${string}`) {
+  const { address } = useAccount();
+  const publicClient = usePublicClient();
+  const [claims, setClaims] = useState<ClaimHistoryEntry[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  async function load() {
+    if (!publicClient || !vaultAddress || !address) {
+      setClaims([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const logs = await publicClient.getLogs({
+        address: vaultAddress,
+        event: parseAbiItem("event RewardClaimed(address indexed user, uint256 amount)"),
+        args: { user: address },
+        fromBlock: 0n,
+        toBlock: "latest",
+      });
+      const withTimestamps = await Promise.all(
+        logs.map(async (log) => {
+          let timestamp: number | null = null;
+          try {
+            const block = await publicClient.getBlock({ blockNumber: log.blockNumber });
+            timestamp = Number(block.timestamp) * 1000;
+          } catch {
+            // Block lookup is best-effort — the amount/tx hash still render without it.
+          }
+          return {
+            amount: log.args.amount ?? 0n,
+            txHash: log.transactionHash,
+            blockNumber: log.blockNumber,
+            timestamp,
+          };
+        })
+      );
+      setClaims(withTimestamps.sort((a, b) => Number(b.blockNumber) - Number(a.blockNumber)));
+    } catch {
+      setClaims([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vaultAddress, address, publicClient]);
+
+  return { claims, loading, refetch: load };
 }
