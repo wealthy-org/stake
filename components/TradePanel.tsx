@@ -6,6 +6,10 @@ import { placeBet, faucet } from "@/lib/client/api";
 import { collateralToNumber, dollarsToBaseUnits, usd, num } from "@/lib/client/format";
 import { previewSettle } from "@/lib/client/estimate";
 import type { MarketRow, PositionRow } from "@/lib/client/types";
+import { useOnChainBet, useOnChainFaucet } from "@/lib/web3/useMarketContract";
+import { friendlyWeb3Error } from "@/lib/web3/errors";
+
+const COLLATERAL_ADDRESS = process.env.NEXT_PUBLIC_COLLATERAL_TOKEN as `0x${string}` | undefined;
 
 export default function TradePanel({
   market,
@@ -22,11 +26,22 @@ export default function TradePanel({
   onChanged: () => void;
   onSideChange?: (side: "yes" | "no") => void;
 }) {
-  const { address, summary, refresh } = useWallet();
+  const { address, summary, refresh, isOnChain } = useWallet();
   const toast = useToast();
   const [side, setSide] = useState<"yes" | "no">(initialSide);
   const [amt, setAmt] = useState("100");
   const [busy, setBusy] = useState(false);
+
+  // On-chain pilot: only markets with a deployed PaperBetMarket clone, and
+  // only while the wallet is actually connected on Robinhood Chain, send a
+  // real transaction. Every other market keeps using the DB ledger exactly
+  // as before — this is additive, nothing existing changes behavior.
+  const onChainMode = Boolean(market.contract_address && isOnChain);
+  const { betOnChain, step: onChainStep } = useOnChainBet(
+    market.contract_address as `0x${string}` | undefined,
+    COLLATERAL_ADDRESS
+  );
+  const { mintToSelf, busy: faucetBusy } = useOnChainFaucet(COLLATERAL_ADDRESS);
 
   useEffect(() => {
     setSide(initialSide);
@@ -59,12 +74,17 @@ export default function TradePanel({
     if (!address) return;
     setBusy(true);
     try {
-      await placeBet(market.id, address, side, dollarsToBaseUnits(amount));
-      toast(`Bet placed: ${usd(amount, 0)} on ${side.toUpperCase()}`);
+      if (onChainMode) {
+        await betOnChain(side, amount);
+        toast(`On-chain bet sent: ${usd(amount, 0)} on ${side.toUpperCase()}`);
+      } else {
+        await placeBet(market.id, address, side, dollarsToBaseUnits(amount));
+        toast(`Bet placed: ${usd(amount, 0)} on ${side.toUpperCase()}`);
+      }
       await refresh();
       onChanged();
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Bet failed");
+      toast(onChainMode ? friendlyWeb3Error(err) : err instanceof Error ? err.message : "Bet failed");
     } finally {
       setBusy(false);
     }
@@ -95,7 +115,9 @@ export default function TradePanel({
       </div>
       <div className="slip-h">
         <b>Bet slip</b>
-        <span className="no">No. {market.id.slice(-4)}</span>
+        <span className="no">
+          {onChainMode ? "On-chain · " : ""}No. {market.id.slice(-4)}
+        </span>
       </div>
       <div className="fl">
         <span>Your pick</span>
@@ -163,6 +185,24 @@ export default function TradePanel({
         </div>
       </div>
 
+      {address && onChainMode && (
+        <button
+          className="btn ghost sm block"
+          style={{ marginBottom: 10 }}
+          disabled={faucetBusy}
+          onClick={async () => {
+            try {
+              await mintToSelf(1000);
+              toast("Minted 1,000 mUSDG to your wallet on-chain");
+            } catch (err) {
+              toast(friendlyWeb3Error(err));
+            }
+          }}
+        >
+          {faucetBusy ? "Minting…" : "Get on-chain test funds (1,000 mUSDG)"}
+        </button>
+      )}
+
       {!address ? (
         <p className="note">Connect a wallet (top right) to bet.</p>
       ) : balance < amount ? (
@@ -171,7 +211,13 @@ export default function TradePanel({
         </button>
       ) : (
         <button className={"btn big block " + side} disabled={busy || amount < minBet || amount > maxBet} onClick={handleBet}>
-          {busy ? "Placing bet…" : `Place bet, ${side.toUpperCase()} ${usd(amount, 0)}`}
+          {busy
+            ? onChainMode
+              ? onChainStep === "approving"
+                ? "Approving collateral…"
+                : "Confirming on-chain bet…"
+              : "Placing bet…"
+            : `Place bet, ${side.toUpperCase()} ${usd(amount, 0)}`}
         </button>
       )}
       <div className="perf"></div>

@@ -26,6 +26,8 @@ export interface MarketRow {
   reward_per_winning_share: string | null;
   cancel_reason: string | null;
   created_at: string;
+  /** Set only for the on-chain pilot: a real PaperBetMarket clone address. */
+  contract_address: string | null;
   bettor_count?: number;
 }
 

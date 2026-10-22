@@ -3,8 +3,17 @@
 import { useEffect, useState } from "react";
 import { SkelPaper } from "@/components/Skeleton";
 import { getPaperSummary, getStats, listMarkets } from "@/lib/client/api";
-import { collateralToNumber, paperToNumber, usd } from "@/lib/client/format";
+import { collateralToNumber, paperToNumber, usd, num } from "@/lib/client/format";
 import type { PaperSummary, MarketRow, ProtocolStats } from "@/lib/client/types";
+import { useWallet, useToast } from "@/components/providers";
+import { useRewardVault } from "@/lib/web3/useMarketContract";
+import { friendlyWeb3Error } from "@/lib/web3/errors";
+
+// Pilot RewardVault deployed via contracts/script/TestnetPonsSimulation.s.sol —
+// the points+vault model (fine2's "Skenario B"), separate from the legacy
+// DB-ledger emission_state read below. Swap this for the real Pons-linked
+// vault once the leader's token is live.
+const REWARD_VAULT_PILOT = "0xa5c4dD985AC3f627FA697683537d2ca02476dafb" as const;
 
 const MILESTONES = (totalWagered: number, cumulativeLoss: number, bettors: number, marketsCreated: number, transfersEnabled: boolean) => [
   ["First market", marketsCreated > 0 ? 1 : 0],
@@ -49,6 +58,60 @@ function EmissionCurve({ cumulativeLoss, rate }: { cumulativeLoss: number; rate:
   );
 }
 
+function OnChainVaultSection() {
+  const { address, isOnChain } = useWallet();
+  const toast = useToast();
+  const { totalPoints, totalRewardDeposited, myPendingReward, claimFromVault, claiming } =
+    useRewardVault(REWARD_VAULT_PILOT);
+
+  return (
+    <div className="blk" style={{ marginBottom: 32, border: "1.5px solid var(--ink)", borderRadius: 8, padding: 18 }}>
+      <h3>On-chain points + vault pilot</h3>
+      <p style={{ fontSize: 14, color: "var(--ink2)" }}>
+        A separate, newer mechanism proven live on Robinhood Chain Testnet: net-loss earns <b>points</b> (not a
+        direct mint), and a treasury deposits reward tokens it bought on a real pool — everyone with points then
+        claims a proportional share. This replaces the mint-based model above for any market wired to it.
+      </p>
+      <div className="zeros" style={{ marginTop: 14 }}>
+        <div>
+          <small>Total points (all wallets)</small>
+          <b>{totalPoints !== undefined ? num(Number(totalPoints) / 1e18) : "—"}</b>
+        </div>
+        <div>
+          <small>Total reward deposited</small>
+          <b>{totalRewardDeposited !== undefined ? num(Number(totalRewardDeposited) / 1e18) : "—"}</b>
+        </div>
+        <div>
+          <small>Your pending claim</small>
+          <b>{address && myPendingReward !== undefined ? num(Number(myPendingReward) / 1e18) : "—"}</b>
+        </div>
+      </div>
+      {address && isOnChain && (
+        <button
+          className="btn sm gold"
+          style={{ marginTop: 14 }}
+          disabled={claiming || !myPendingReward}
+          onClick={async () => {
+            try {
+              await claimFromVault();
+              toast("Claimed from reward vault");
+            } catch (err) {
+              toast(friendlyWeb3Error(err));
+            }
+          }}
+        >
+          {claiming ? "Claiming…" : "Claim from vault"}
+        </button>
+      )}
+      {!isOnChain && (
+        <p className="note" style={{ marginTop: 10 }}>
+          Connect a wallet on Robinhood Chain Testnet to see your points and claim.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function PaperPage() {
   const [paper, setPaper] = useState<PaperSummary | null>(null);
   const [markets, setMarkets] = useState<MarketRow[]>([]);
@@ -69,14 +132,17 @@ export default function PaperPage() {
 
   return (
     <>
+      <OnChainVaultSection />
+
       <div className="certbig">
         <div className="k">Certificate of ownership</div>
         <h1>{Math.round(supply).toLocaleString("en-US")}</h1>
         <p>
-          STAKE exists only because bettors lost real money. It enters supply through verified realized losses,
-          with no team allocation, no premint and no admin who can mint.
+          Legacy DB-ledger model (pre-Pons pivot): STAKE entered supply through verified realized losses, with no
+          team allocation and no premint. Kept here as a record of the original mint-based design — see the
+          points+vault pilot above for the current direction.
         </p>
-        <span className="serial">Supply today</span>
+        <span className="serial">Supply today (legacy)</span>
         <span className="stamp gold">{paper.transfersEnabled ? "Transfers enabled" : "Transfers locked"}</span>
       </div>
 

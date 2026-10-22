@@ -106,6 +106,12 @@ const STATEMENTS = [
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   )`,
   `CREATE INDEX IF NOT EXISTS events_market_idx ON events (market_id)`,
+
+  // On-chain pilot (step 1 of the DB-ledger -> real-contract migration):
+  // when set, this market has a real PaperBetMarket clone deployed via
+  // PaperBetFactory at this address, and the UI should send real
+  // transactions to it instead of writing to the DB ledger.
+  `ALTER TABLE markets ADD COLUMN IF NOT EXISTS contract_address TEXT`,
 ];
 
 let initialized: Promise<void> | null = null;

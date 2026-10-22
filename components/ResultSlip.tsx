@@ -5,12 +5,22 @@ import { useWallet, useToast } from "./providers";
 import { claimPayout, claimPaper } from "@/lib/client/api";
 import { collateralToNumber, paperToNumber, usd, num } from "@/lib/client/format";
 import type { MarketRow, PositionRow } from "@/lib/client/types";
+import { useOnChainClaim } from "@/lib/web3/useMarketContract";
+import { friendlyWeb3Error } from "@/lib/web3/errors";
 
 /** Resolved-market winner/loser/cancelled-refund slip, with working claim buttons (brief §30/§44). */
 export default function ResultSlip({ market, position, onChanged }: { market: MarketRow; position: PositionRow; onChanged: () => void }) {
-  const { address, refresh } = useWallet();
+  const { address, refresh, isOnChain } = useWallet();
   const toast = useToast();
   const [busy, setBusy] = useState<"payout" | "paper" | null>(null);
+
+  // Same on-chain pilot gate as TradePanel: only markets with a deployed
+  // clone, and only while the wallet is actually on Robinhood Chain, send
+  // real claim transactions. Everything else keeps using the DB ledger.
+  const onChainMode = Boolean(market.contract_address && isOnChain);
+  const { claimPayoutOnChain, claimPaperOnChain } = useOnChainClaim(
+    market.contract_address as `0x${string}` | undefined
+  );
 
   const yesStake = collateralToNumber(position.yes_stake);
   const noStake = collateralToNumber(position.no_stake);
@@ -49,12 +59,13 @@ export default function ResultSlip({ market, position, onChanged }: { market: Ma
                   if (!address) return;
                   setBusy("payout");
                   try {
-                    await claimPayout(market.id, address);
+                    if (onChainMode) await claimPayoutOnChain();
+                    else await claimPayout(market.id, address);
                     toast("Refund claimed");
                     await refresh();
                     onChanged();
                   } catch (err) {
-                    toast(err instanceof Error ? err.message : "Claim failed");
+                    toast(onChainMode ? friendlyWeb3Error(err) : err instanceof Error ? err.message : "Claim failed");
                   } finally {
                     setBusy(null);
                   }
@@ -135,12 +146,13 @@ export default function ResultSlip({ market, position, onChanged }: { market: Ma
                   if (!address) return;
                   setBusy("payout");
                   try {
-                    await claimPayout(market.id, address);
+                    if (onChainMode) await claimPayoutOnChain();
+                    else await claimPayout(market.id, address);
                     toast(`Claimed ${usd(payout)} USDG`);
                     await refresh();
                     onChanged();
                   } catch (err) {
-                    toast(err instanceof Error ? err.message : "Claim failed");
+                    toast(onChainMode ? friendlyWeb3Error(err) : err instanceof Error ? err.message : "Claim failed");
                   } finally {
                     setBusy(null);
                   }
@@ -167,12 +179,17 @@ export default function ResultSlip({ market, position, onChanged }: { market: Ma
                   if (!address) return;
                   setBusy("paper");
                   try {
-                    const res = await claimPaper(market.id, address);
-                    toast(`Claimed ${num(paperToNumber(res.paperMinted))} STAKE`);
+                    if (onChainMode) {
+                      await claimPaperOnChain();
+                      toast("STAKE points accrued — claim the token itself from the STAKE page once the reward vault is funded");
+                    } else {
+                      const res = await claimPaper(market.id, address);
+                      toast(`Claimed ${num(paperToNumber(res.paperMinted))} STAKE`);
+                    }
                     await refresh();
                     onChanged();
                   } catch (err) {
-                    toast(err instanceof Error ? err.message : "Claim failed");
+                    toast(onChainMode ? friendlyWeb3Error(err) : err instanceof Error ? err.message : "Claim failed");
                   } finally {
                     setBusy(null);
                   }

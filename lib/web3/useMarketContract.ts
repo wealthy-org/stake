@@ -1,7 +1,33 @@
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract, useReadContracts } from "wagmi";
 import { parseUnits } from "viem";
-import { paperBetMarketAbi, erc20Abi } from "./abi";
+import { paperBetMarketAbi, erc20Abi, rewardVaultAbi } from "./abi";
 import { useState } from "react";
+
+/** Testnet-only self-serve faucet: anyone can mint MockCollateral (mUSDG) to their own wallet, no admin needed. */
+export function useOnChainFaucet(collateralAddress?: `0x${string}`) {
+  const { address, isConnected } = useAccount();
+  const { writeContractAsync } = useWriteContract();
+  const [busy, setBusy] = useState(false);
+
+  async function mintToSelf(amountDollars: number) {
+    if (!isConnected || !address || !collateralAddress) {
+      throw new Error("Wallet not connected or collateral address missing");
+    }
+    setBusy(true);
+    try {
+      return await writeContractAsync({
+        address: collateralAddress,
+        abi: erc20Abi,
+        functionName: "mint",
+        args: [address, parseUnits(amountDollars.toString(), 6)],
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return { mintToSelf, busy };
+}
 
 export function useOnChainBet(marketAddress?: `0x${string}`, collateralAddress?: `0x${string}`) {
   const { isConnected } = useAccount();
@@ -87,4 +113,49 @@ export function useOnChainClaim(marketAddress?: `0x${string}`) {
   }
 
   return { claimPayoutOnChain, claimPaperOnChain, busy };
+}
+
+/** Reads from the on-chain points+vault pilot (RewardVault.sol) — replaces the DB `emission_state` reads for markets that have moved to the real contract. */
+export function useRewardVault(vaultAddress?: `0x${string}`) {
+  const { address } = useAccount();
+
+  const { data, isLoading } = useReadContracts({
+    contracts: vaultAddress
+      ? [
+          { address: vaultAddress, abi: rewardVaultAbi, functionName: "totalPoints" },
+          { address: vaultAddress, abi: rewardVaultAbi, functionName: "totalRewardDeposited" },
+          { address: vaultAddress, abi: rewardVaultAbi, functionName: "rewardToken" },
+        ]
+      : [],
+    query: { enabled: Boolean(vaultAddress) },
+  });
+
+  const { data: myPending } = useReadContract(
+    vaultAddress && address
+      ? { address: vaultAddress, abi: rewardVaultAbi, functionName: "pendingReward", args: [address] }
+      : ({} as any)
+  );
+
+  const { writeContractAsync } = useWriteContract();
+  const [claiming, setClaiming] = useState(false);
+
+  async function claimFromVault() {
+    if (!vaultAddress) throw new Error("Reward vault address missing");
+    setClaiming(true);
+    try {
+      return await writeContractAsync({ address: vaultAddress, abi: rewardVaultAbi, functionName: "claim" });
+    } finally {
+      setClaiming(false);
+    }
+  }
+
+  return {
+    totalPoints: data?.[0]?.result as bigint | undefined,
+    totalRewardDeposited: data?.[1]?.result as bigint | undefined,
+    rewardTokenAddress: data?.[2]?.result as `0x${string}` | undefined,
+    myPendingReward: myPending as bigint | undefined,
+    isLoading,
+    claimFromVault,
+    claiming,
+  };
 }

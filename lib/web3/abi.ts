@@ -33,6 +33,67 @@ export const erc20Abi = [
     inputs: [],
     outputs: [{ name: "", type: "uint8" }],
   },
+  {
+    // Testnet-only mock (MockCollateral.sol) — mint is deliberately open
+    // to anyone so every tester can self-serve without an admin wallet.
+    name: "mint",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [],
+  },
+] as const;
+
+export const rewardVaultAbi = [
+  {
+    name: "totalPoints",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "totalRewardDeposited",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "rewardToken",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+  },
+  {
+    name: "accounts",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "", type: "address" }],
+    outputs: [
+      { name: "points", type: "uint256" },
+      { name: "rewardDebt", type: "uint256" },
+      { name: "claimed", type: "uint256" },
+    ],
+  },
+  {
+    name: "pendingReward",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "user", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "claim",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [],
+    outputs: [{ name: "amount", type: "uint256" }],
+  },
 ] as const;
 
 export const paperBetMarketAbi = [
