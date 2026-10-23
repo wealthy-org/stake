@@ -3,9 +3,13 @@ import { ok, fail } from "@/lib/http";
 import { getBinanceHistory, getNasdaqHistory, getPolymarketHistory, isTimeframe, type PricePoint } from "@/lib/oracle/history";
 
 // Binance blocks requests from US-region cloud IPs (HTTP 451, "restricted
-// location") — Vercel's default serverless region is US (iad1), so every
-// Binance-sourced fetch from this route failed in production while working
-// fine locally. Pinning this route to Singapore avoids the block.
+// location"). `preferredRegion` alone doesn't fix this for a Node.js
+// serverless function on Vercel's Hobby plan — it's only a routing hint;
+// the function itself still executes in the project's single home region
+// (iad1, US), confirmed via the `x-vercel-id: sin1::iad1::...` response
+// header. Edge Runtime is the one Vercel feature that actually executes in
+// the requested region on every plan, so switch to it instead.
+export const runtime = "edge";
 export const preferredRegion = "sin1";
 
 /**
