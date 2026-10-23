@@ -252,7 +252,7 @@ export default function Dashboard() {
               <div className="poly-featured-category">
                 <Coin symbol={activeFeatured.asset_symbol} />
                 <span className="poly-cat-text">
-                  {activeFeatured.oracle_source.startsWith("stock:") ? "Stock Tokens" : "Crypto"}
+                  {activeFeatured.oracle_source.startsWith("stock:") ? "Stock Tokens" : assetGroup(activeFeatured.asset_symbol)}
                 </span>
                 <span className="poly-pool-id">#{activeFeatured.id.slice(-3).toUpperCase()}</span>
               </div>
@@ -332,7 +332,15 @@ export default function Dashboard() {
               <span>
                 Ends <b>{new Date(activeFeatured.betting_closes_at).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}</b>
               </span>
-              <span>Oracle {activeFeatured.oracle_source.split(":")[0] === "stock" ? "Nasdaq tape" : "Binance spot"} · Fee {(activeFeatured.protocol_fee_bps / 100).toFixed(1)}%</span>
+              <span>
+                Oracle{" "}
+                {activeFeatured.oracle_source.startsWith("stock:")
+                  ? "Nasdaq tape"
+                  : activeFeatured.oracle_source.startsWith("polymarket:")
+                  ? "Polymarket settlement"
+                  : "Binance spot"}{" "}
+                · Fee {(activeFeatured.protocol_fee_bps / 100).toFixed(1)}%
+              </span>
             </div>
 
             {/* Featured Bottom Actions & Carousel Controls */}
