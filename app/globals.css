@@ -1629,13 +1629,14 @@ footer p{max-width:58ch}
 .poly-featured-title a:hover{text-decoration:underline;text-decoration-thickness:2px}
 
 .poly-odds-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
-.poly-odd-box{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-radius:9px;border:1.5px solid currentColor;text-decoration:none;transition:transform .13s var(--out),box-shadow .13s,background .13s}
+.poly-odd-box{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;border-radius:9px;border:1.5px solid currentColor;text-decoration:none;transition:transform .13s var(--out),box-shadow .13s,background .13s;overflow:hidden}
 .poly-odd-box.yes{color:var(--yes);background:var(--yes-t)}
 .poly-odd-box.no{color:var(--no);background:var(--no-t)}
 .poly-odd-box:hover{transform:translateY(-2px);box-shadow:0 10px 20px -12px rgba(18,19,16,.4)}
+.poly-odd-box .odd-left{min-width:0}
 .poly-odd-box .odd-label{display:block;font:800 15px var(--display);letter-spacing:.02em}
 .poly-odd-box .odd-sub{display:block;font:500 11.5px var(--type);color:var(--ink2);margin-top:3px}
-.poly-odd-box .odd-right{text-align:right}
+.poly-odd-box .odd-right{text-align:right;min-width:0;flex-shrink:0}
 .poly-odd-box .odd-pct{display:block;font:800 30px/1 var(--display);letter-spacing:-.01em}
 .poly-odd-box .odd-pays{display:block;font:600 11px var(--type);color:var(--ink2);margin-top:3px;white-space:nowrap}
 
