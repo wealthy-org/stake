@@ -791,17 +791,18 @@ footer p{max-width:58ch}
 
 .poly-hero {
   display: grid;
-  grid-template-columns: 1.75fr 1fr;
-  gap: 20px;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 22px;
   margin-top: 18px;
   margin-bottom: 34px;
+  align-items: start;
 }
 
 .poly-featured-card {
   background: var(--slip);
   border: 1.5px solid var(--ink);
-  border-radius: 12px;
-  padding: 24px;
+  border-radius: 14px;
+  padding: 28px 30px;
   display: flex;
   flex-direction: column;
   box-shadow: 4px 4px 0 var(--ink);
@@ -814,7 +815,7 @@ footer p{max-width:58ch}
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .poly-featured-category {
@@ -825,7 +826,7 @@ footer p{max-width:58ch}
 
 .poly-cat-text {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 11.5px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-weight: 700;
@@ -837,18 +838,18 @@ footer p{max-width:58ch}
   font-size: 11px;
   color: var(--dim);
   background: rgba(18, 19, 16, 0.06);
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: 4px;
 }
 
 .poly-vol-badge {
   font-family: var(--mono);
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--ink);
-  background: rgba(207, 242, 58, 0.25);
-  border: 1px solid rgba(18, 19, 16, 0.15);
-  padding: 3px 8px;
+  background: rgba(207, 242, 58, 0.28);
+  border: 1px solid rgba(18, 19, 16, 0.18);
+  padding: 4px 10px;
   border-radius: 6px;
   display: inline-flex;
   align-items: center;
@@ -866,11 +867,11 @@ footer p{max-width:58ch}
 
 .poly-featured-title {
   font-family: var(--serif);
-  font-size: 24px;
+  font-size: 28px;
   line-height: 1.25;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: -0.02em;
-  margin: 0 0 18px;
+  margin: 0 0 20px;
 }
 
 .poly-featured-title a {
@@ -885,16 +886,16 @@ footer p{max-width:58ch}
 .poly-odds-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 18px;
+  gap: 14px;
+  margin-bottom: 20px;
 }
 
 .poly-odd-box {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  border-radius: 8px;
+  padding: 14px 20px;
+  border-radius: 10px;
   border: 1.5px solid var(--ink);
   text-decoration: none;
   transition: transform 0.12s ease, box-shadow 0.12s ease;
@@ -902,7 +903,7 @@ footer p{max-width:58ch}
 
 .poly-odd-box:hover {
   transform: translateY(-2px);
-  box-shadow: 0 3px 0 var(--ink);
+  box-shadow: 0 4px 0 var(--ink);
 }
 
 .poly-odd-box.yes {
@@ -922,14 +923,14 @@ footer p{max-width:58ch}
 
 .odd-label {
   font-family: var(--sans);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 800;
   color: var(--ink);
   letter-spacing: 0.02em;
 }
 
 .odd-sub {
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--dim);
 }
 
@@ -942,7 +943,7 @@ footer p{max-width:58ch}
 
 .odd-pct {
   font-family: var(--mono);
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 800;
   line-height: 1;
   color: var(--ink);
@@ -950,7 +951,7 @@ footer p{max-width:58ch}
 
 .odd-pays {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--dim);
 }
 
@@ -958,9 +959,9 @@ footer p{max-width:58ch}
 .poly-chart-wrap {
   background: rgba(18, 19, 16, 0.03);
   border: 1px solid var(--rule);
-  border-radius: 8px;
-  padding: 14px 16px;
-  margin-bottom: 18px;
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
 }
 
 .poly-chart-head {
@@ -970,7 +971,7 @@ footer p{max-width:58ch}
   font-family: var(--mono);
   font-size: 11px;
   color: var(--dim);
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .poly-chart-legend {
@@ -1011,7 +1012,7 @@ footer p{max-width:58ch}
 
 .poly-svg-container {
   width: 100%;
-  height: 120px;
+  height: 155px;
 }
 
 .poly-chart-svg {
@@ -1037,7 +1038,7 @@ footer p{max-width:58ch}
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 14px;
-  padding-top: 14px;
+  padding-top: 16px;
   border-top: 1px solid var(--rule);
   margin-top: auto;
 }
@@ -1049,9 +1050,9 @@ footer p{max-width:58ch}
 }
 
 .poly-featured-bet-btns .btn {
-  padding: 9px 18px;
+  padding: 11px 22px;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 14px;
   border-radius: 6px;
   text-decoration: none;
   display: inline-flex;
@@ -1116,7 +1117,7 @@ footer p{max-width:58ch}
   font-family: var(--mono);
   font-size: 11.5px;
   font-weight: 600;
-  padding: 4px 10px;
+  padding: 5px 12px;
   cursor: pointer;
   color: var(--ink);
   transition: all 0.15s ease;
@@ -1138,10 +1139,10 @@ footer p{max-width:58ch}
 .poly-promo-card {
   background: var(--ink);
   color: var(--slip);
-  border-radius: 10px;
-  padding: 13px 16px;
+  border-radius: 9px;
+  padding: 11px 14px;
   border: 1.5px solid var(--ink);
-  box-shadow: 3px 3px 0 rgba(18, 19, 16, 0.4);
+  box-shadow: 2.5px 2.5px 0 rgba(18, 19, 16, 0.35);
 }
 
 .poly-promo-card.genesis {
@@ -1151,14 +1152,14 @@ footer p{max-width:58ch}
 
 .promo-badge {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 8.5px;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   font-weight: 800;
-  padding: 3px 8px;
-  border-radius: 4px;
+  padding: 2px 6px;
+  border-radius: 3px;
   display: inline-block;
-  margin-bottom: 8px;
+  margin-bottom: 5px;
   background: rgba(255, 215, 0, 0.18);
   color: #ffd700;
 }
@@ -1170,48 +1171,58 @@ footer p{max-width:58ch}
 
 .poly-promo-card h3 {
   font-family: var(--sans);
-  font-size: 16px;
+  font-size: 13.5px;
   font-weight: 700;
-  margin: 0 0 6px;
+  margin: 0 0 3px;
   color: #ffffff;
 }
 
 .poly-promo-card p {
-  font-size: 12.5px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.35;
   color: #a4a899;
-  margin: 0 0 14px;
+  margin: 0 0 8px;
+}
+
+.poly-promo-card .btn.sm {
+  padding: 4px 10px;
+  font-size: 11px;
+  gap: 4px;
+  border-radius: 4px;
 }
 
 /* Trending Topik Hangat 🔥 */
 .poly-trending-card {
   background: var(--slip);
   border: 1.5px solid var(--ink);
-  border-radius: 12px;
-  padding: 16px 18px;
-  box-shadow: 3px 3px 0 var(--ink);
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 2.5px 2.5px 0 var(--ink);
 }
 
 .trending-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
   border-bottom: 1px solid var(--rule);
 }
 
 .trending-head h4 {
   font-family: var(--sans);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: -0.01em;
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .trending-more {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--dim);
   text-decoration: none;
   font-weight: 600;
@@ -1242,8 +1253,8 @@ footer p{max-width:58ch}
 .trending-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 8px;
+  padding: 5px 6px;
   border-radius: 6px;
   text-decoration: none;
   color: var(--ink);
@@ -1256,10 +1267,16 @@ footer p{max-width:58ch}
 
 .trending-item .rank {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   color: var(--dim);
-  width: 14px;
+  width: 12px;
+  flex: none;
+}
+
+.trending-item svg {
+  width: 20px;
+  height: 20px;
   flex: none;
 }
 
@@ -1268,11 +1285,11 @@ footer p{max-width:58ch}
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .trending-info .q {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -1282,12 +1299,12 @@ footer p{max-width:58ch}
 
 .trending-info .v {
   font-family: var(--mono);
-  font-size: 10.5px;
+  font-size: 10px;
   color: var(--dim);
 }
 
 .trending-item .flame {
-  font-size: 12px;
+  font-size: 11px;
   flex: none;
 }
 
