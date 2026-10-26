@@ -59,12 +59,16 @@ export default function Dashboard() {
     };
     fetchMarkets();
     getStats().then(setStats).catch(() => {});
-    const interval = setInterval(fetchMarkets, 10000);
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      fetchMarkets();
+    }, 30000);
     return () => {
       active = false;
       clearInterval(interval);
     };
   }, []);
+
 
   // Top open markets — Polymarket-sourced markets surface first (leader's
   // priority call: push Polymarket content to the top without touching the

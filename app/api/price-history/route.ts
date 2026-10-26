@@ -34,8 +34,14 @@ export async function GET(req: NextRequest) {
     } else {
       points = await getBinanceHistory(feed, tf);
     }
-    return ok(points);
+    return Response.json(points, {
+      status: 200,
+      headers: {
+        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+      },
+    });
   } catch (err) {
     return fail(Object.assign(new Error((err as Error).message || "history unavailable"), { code: "HISTORY_UNAVAILABLE" }));
   }
 }
+

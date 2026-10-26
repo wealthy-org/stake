@@ -61,8 +61,7 @@ export default function TapeStrip() {
         INSTRUMENTS.map(async (inst) => {
           try {
             const res = await fetch(
-              `/api/price-history?source=${inst.source}&feed=${inst.feed}&tf=24H`,
-              { cache: "no-store" }
+              `/api/price-history?source=${inst.source}&feed=${inst.feed}&tf=24H`
             );
             if (!res.ok) throw new Error(String(res.status));
             const points: Point[] = await res.json();
@@ -88,12 +87,16 @@ export default function TapeStrip() {
     }
 
     load();
-    const id = setInterval(load, 60_000);
+    const id = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      load();
+    }, 120_000);
     return () => {
       alive = false;
       clearInterval(id);
     };
   }, []);
+
 
   function renderCard(inst: (typeof INSTRUMENTS)[number], dupKey: string) {
     const slot = slots[inst.label] ?? EMPTY;
