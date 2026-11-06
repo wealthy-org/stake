@@ -239,9 +239,6 @@ export default function Dashboard() {
             <button className="btn gold" onClick={() => connectInjected()}>
               Connect wallet
             </button>
-            <button className="btn ghost" onClick={connectTestAddress}>
-              Use a test address
-            </button>
           </div>
         </div>
       )}

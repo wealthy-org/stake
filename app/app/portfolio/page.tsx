@@ -42,9 +42,6 @@ export default function PortfolioPage() {
           <p>Open bets, claimable winnings and STAKE certificates show up here.</p>
           <button className="btn big" onClick={connectInjected}>
             Connect wallet
-          </button>{" "}
-          <button className="btn big ghost" onClick={connectTestAddress}>
-            Use a test address
           </button>
         </div>
       </>

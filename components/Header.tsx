@@ -118,24 +118,6 @@ function WalletModal({ open, onClose }: { open: boolean; onClose: () => void }) 
             <small>MetaMask, Robinhood Wallet, Rabby, etc.</small>
           </span>
         </button>
-        <button
-          className="wopt"
-          onClick={() => {
-            connectTestAddress();
-            onClose();
-          }}
-        >
-          <div className="wopt-icon" style={{ background: "#2631A6" }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F3F6EE" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 2l-2 2m-1.5 1.5L16 7l-1.5-1.5-2 2L14 9l-4 4H7v3H4v3H1l2.5 2.5a2.12 2.12 0 0 0 3 0L17 8.5l1.5 1.5 2-2L19 6.5l1.5-1.5"/>
-              <circle cx="16.5" cy="7.5" r=".5" fill="#F3F6EE"/>
-            </svg>
-          </div>
-          <span>
-            Ephemeral Test Key
-            <small>Simulated local address, zero signature required</small>
-          </span>
-        </button>
         <div className="perf"></div>
         <div style={{ padding: "12px 0 18px" }}>
           <button className="btn ghost block" onClick={onClose}>
