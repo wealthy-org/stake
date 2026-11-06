@@ -153,7 +153,7 @@ export default function Header() {
   const [modalOpen, setModalOpen] = useState(false);
 
   const short = address ? `${address.slice(0, 6)}…${address.slice(-4)}` : null;
-  const isWrongChain = isOnChain && chainId !== 46630;
+  const isWrongChain = isOnChain && chainId !== 4663;
 
   return (
     <>

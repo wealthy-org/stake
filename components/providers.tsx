@@ -159,10 +159,10 @@ function WalletInnerProvider({ children }: { children: React.ReactNode }) {
             });
             showToast("Added and connected to Robinhood Chain");
           } catch {
-            showToast("Connected! Switch wallet to Robinhood Chain (46630)");
+            showToast("Connected! Switch wallet to Robinhood Chain");
           }
         } else {
-          showToast("Connected! Switch wallet to Robinhood Chain (46630)");
+          showToast("Connected! Switch wallet to Robinhood Chain");
         }
       }
     } catch (err: any) {

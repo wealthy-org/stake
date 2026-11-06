@@ -110,7 +110,7 @@ export const DOC_ARTICLES: Record<string, DocArticle> = {
       },
       {
         type: "p",
-        text: "Stake smart contracts live on Robinhood Chain (Chain ID 46630). When a market is initiated, users deposit approved collateral (e.g. Robinhood USD / stablecoins) into dedicated YES or NO pool vaults. All deposits are locked immutably on-chain until the predetermined cutoff and oracle settlement timestamp.",
+        text: "Stake smart contracts live on Robinhood Chain (Chain ID 4663). When a market is initiated, users deposit approved collateral (e.g. Robinhood USD / stablecoins) into dedicated YES or NO pool vaults. All deposits are locked immutably on-chain until the predetermined cutoff and oracle settlement timestamp.",
       },
       {
         type: "callout",
@@ -249,10 +249,10 @@ export const DOC_ARTICLES: Record<string, DocArticle> = {
         tableHeaders: ["Parameter", "Network Configuration"],
         tableRows: [
           ["Network Name", "Robinhood Chain"],
-          ["RPC URL", "https://rpc.chain.robinhood.com"],
-          ["Chain ID", "46630"],
+          ["RPC URL", "https://rpc.mainnet.chain.robinhood.com"],
+          ["Chain ID", "4663"],
           ["Currency Symbol", "ETH"],
-          ["Block Explorer", "https://explorer.chain.robinhood.com"],
+          ["Block Explorer", "https://explorer.mainnet.chain.robinhood.com"],
         ],
       },
       {
@@ -663,32 +663,34 @@ adjustedStrike = originalStrike / splitMultiplier;
     slug: "contract-addresses",
     section: "Developer reference",
     title: "Contract Addresses",
-    lead: "Official deployment addresses on Robinhood Chain (Chain ID 46630).",
+    lead: "Official deployment addresses on Robinhood Chain (Chain ID 4663).",
     headings: [
-      { id: "testnet-deployments", title: "Robinhood Chain deployments" },
+      { id: "mainnet-deployments", title: "Robinhood Chain deployments" },
     ],
     content: [
       {
         type: "h2",
-        id: "testnet-deployments",
+        id: "mainnet-deployments",
         text: "Robinhood Chain deployments",
       },
       {
         type: "table",
         tableHeaders: ["Contract Name", "Address", "Explorer"],
         tableRows: [
-          ["StakeMarketFactory", "0x39a1c68f2371E7D52F8f2a9692461D4C73f40431", "Verified"],
-          ["StakeToken ($STAKE)", "0x8B75F34E35c75B91aC191A77576579c1e7a5E98B", "Verified"],
-          ["TreasuryVault", "0x5241C765471B3E4eA3E62b9D206B1A8325Ac7F68", "Verified"],
-          ["OracleResolver", "0x7aB9c025D8F2A803Bf75960F1c8D6241b3F5a939", "Verified"],
-          ["MockCollateralUSD", "0x12F8e6899c750b2F5c9779313bF5605a67D98a72", "Verified"],
+          ["PaperBetFactory", "0xf45D0c082B00A1A4fa212C97754F4F3effD71203", "Verified"],
+          ["PaperToken ($STAKE)", "0xB3549f0698D49C42ec4Bf89584f846617530D145", "Verified"],
+          ["EmissionController", "0xc0dCF2037699F92662e0EDCFb353867f354F9081", "Verified"],
+          ["FeeTreasury", "0x71Bf50662AF66d48107d81DF7daB4D09b5e9595b", "Verified"],
+          ["ProtocolPause", "0x02059e996a07853351473B0dc707941828DEa7e8", "Verified"],
+          ["CollateralToken (mUSDG)", "0x955C10A83B40824913E32A93A58B99175A7987dC", "Verified"],
+          ["OracleResolver", "0xea08d38821ad261d0f1178986aeA98C58e1cF0A6", "Verified"],
         ],
       },
       {
         type: "callout",
         calloutType: "info",
         calloutHead: "NETWORK RPC",
-        text: "RPC: https://rpc.chain.robinhood.com · Chain ID: 46630 · Symbol: ETH",
+        text: "RPC: https://rpc.mainnet.chain.robinhood.com · Chain ID: 4663 · Symbol: ETH",
       },
     ],
   },
