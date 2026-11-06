@@ -777,7 +777,8 @@
   letter-spacing: .06em;
   color: var(--ink-3);
 }
-.site-foot button {
+.site-foot button,
+.site-foot a {
   border: 0;
   background: none;
   padding: 0;
@@ -785,8 +786,12 @@
   color: var(--ink-2);
   text-decoration: underline;
   text-underline-offset: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
-.site-foot button:hover { color: var(--ink); }
+.site-foot button:hover,
+.site-foot a:hover { color: var(--ink); }
 
 /* Page transition overlay */
 .flipover {

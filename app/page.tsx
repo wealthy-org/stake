@@ -418,6 +418,27 @@ export default function LandingPage() {
             >
               Docs
             </button>
+            <a
+              href="https://x.com/stakemarketonx"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Stake Market on X"
+              title="Stake Market on X (@stakemarketonx)"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                color: "var(--ink-2)",
+                textDecoration: "none",
+                marginLeft: 8,
+                padding: "4px 6px",
+                borderRadius: "4px",
+                transition: "color 0.15s ease",
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+              </svg>
+            </a>
           </nav>
 
           <div className="top-end">
@@ -1163,8 +1184,19 @@ export default function LandingPage() {
 
       {/* ── FOOTER ── */}
       <footer className="site-foot">
-        <span>STAKE MARKET · INTERACTIVE PREVIEW · NO REAL FUNDS</span>
-        <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+        <span>STAKE MARKET · LIVE ON ROBINHOOD CHAIN (ID: 4663)</span>
+        <div style={{ display: "flex", gap: "20px", alignItems: "center", flexWrap: "wrap" }}>
+          <a
+            href="https://x.com/stakemarketonx"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Stake Market on X (Twitter)"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+            </svg>
+            @stakemarketonx ↗
+          </a>
           <button onClick={() => navigateTo("docs")}>Documentation</button>
           <button onClick={() => setNotesDialogOpen(true)}>Protocol notes ↗</button>
         </div>
