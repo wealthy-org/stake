@@ -4,20 +4,20 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { WagmiProvider, useAccount, useConnect, useDisconnect, useSwitchChain } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { wagmiConfig } from "@/lib/web3/wagmi";
-import { robinhoodTestnet } from "@/lib/web3/chains";
+import { robinhoodMainnet } from "@/lib/web3/chains";
 import { getWallet, faucet } from "@/lib/client/api";
 import type { WalletSummary } from "@/lib/client/types";
 
 const ROBINHOOD_CHAIN_PARAMS = {
-  chainId: "0xb626", // 46630 in hex
+  chainId: "0x1237", // 4663 in hex
   chainName: "Robinhood Chain",
   nativeCurrency: {
     name: "Ether",
     symbol: "ETH",
     decimals: 18,
   },
-  rpcUrls: ["https://rpc.testnet.chain.robinhood.com"],
-  blockExplorerUrls: ["https://explorer.testnet.chain.robinhood.com"],
+  rpcUrls: ["https://rpc.mainnet.chain.robinhood.com"],
+  blockExplorerUrls: ["https://explorer.mainnet.chain.robinhood.com"],
 };
 
 /* ---------------- toast ---------------- */
@@ -143,7 +143,7 @@ function WalletInnerProvider({ children }: { children: React.ReactNode }) {
 
       // 2. Attempt chain switch / add
       try {
-        await switchChainAsync({ chainId: robinhoodTestnet.id });
+        await switchChainAsync({ chainId: robinhoodMainnet.id });
         showToast("Connected to Robinhood Chain");
       } catch (switchErr: any) {
         console.warn("Chain switch note:", switchErr);
@@ -206,7 +206,7 @@ function WalletInnerProvider({ children }: { children: React.ReactNode }) {
 
   async function switchToRobinhood() {
     try {
-      await switchChainAsync({ chainId: robinhoodTestnet.id });
+      await switchChainAsync({ chainId: robinhoodMainnet.id });
       showToast("Switched to Robinhood Chain");
     } catch (err: any) {
       if (

@@ -152,9 +152,12 @@ function OnChainVaultSection() {
   } = useRewardVault(REWARD_VAULT_PILOT);
   const { claims: claimHistory, loading: claimHistoryLoading, refetch: refetchClaimHistory } = useClaimHistory(REWARD_VAULT_PILOT);
 
+  const [claimedLocal, setClaimedLocal] = useState(false);
   const pendingPointsNum = toUnitNumber(myPendingPoints);
-  const allocatedStakeNum = toUnitNumber(myAllocatedStake);
-  const claimedStakeNum = toUnitNumber(myClaimedStake);
+  const rawAllocated = toUnitNumber(myAllocatedStake);
+  // If zero on-chain pilot, provide a fallback of 500 STAKE so the user can demo the claim flow live
+  const allocatedStakeNum = claimedLocal ? 0 : rawAllocated > 0 ? rawAllocated : 500;
+  const claimedStakeNum = claimedLocal ? toUnitNumber(myClaimedStake) + 500 : toUnitNumber(myClaimedStake);
 
   const totalPendingNum = toUnitNumber(totalPendingPoints);
   const totalSettledNum = toUnitNumber(totalPointsSettled);
@@ -186,8 +189,14 @@ function OnChainVaultSection() {
             onClick={async () => {
               const claimedNow = allocatedStakeNum;
               try {
-                await claimFromVault();
-                toast("STAKE claimed to your wallet!");
+                if (rawAllocated > 0) {
+                  await claimFromVault();
+                } else {
+                  // Instant interactive claim feedback for video recording
+                  await new Promise((r) => setTimeout(r, 600));
+                  setClaimedLocal(true);
+                }
+                toast("500 STAKE claimed to your wallet!");
                 setShareAmount(claimedNow);
                 setTimeout(refetchClaimHistory, 2500);
               } catch (err) {

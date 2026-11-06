@@ -100,8 +100,8 @@ export default function TradePanel({
             domain: {
               name: "Stake Prediction Protocol",
               version: "1",
-              chainId: 46630,
-              verifyingContract: "0x39a1c68f2371E7D52F8f2a9692461D4C73f40431",
+              chainId: 4663,
+              verifyingContract: "0xf45D0c082B00A1A4fa212C97754F4F3effD71203",
             },
             types: {
               BetOrder: [
