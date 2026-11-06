@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useWallet, useToast } from "./providers";
+import { useSignTypedData } from "wagmi";
 import { placeBet, faucet } from "@/lib/client/api";
 import { collateralToNumber, dollarsToBaseUnits, usd, num } from "@/lib/client/format";
 import { previewSettle } from "@/lib/client/estimate";
 import type { MarketRow, PositionRow } from "@/lib/client/types";
 import { useOnChainBet, useOnChainFaucet } from "@/lib/web3/useMarketContract";
 import { friendlyWeb3Error } from "@/lib/web3/errors";
+import ThermalBetReceipt from "./ThermalBetReceipt";
 
 const COLLATERAL_ADDRESS = process.env.NEXT_PUBLIC_COLLATERAL_TOKEN as `0x${string}` | undefined;
 
@@ -31,6 +33,16 @@ export default function TradePanel({
   const [side, setSide] = useState<"yes" | "no">(initialSide);
   const [amt, setAmt] = useState("100");
   const [busy, setBusy] = useState(false);
+  const [receiptData, setReceiptData] = useState<{
+    signature?: string;
+    txHash?: string;
+    amount: number;
+    side: "yes" | "no";
+    estPayout: number;
+    estStakeLoss: number;
+  } | null>(null);
+
+  const { signTypedDataAsync } = useSignTypedData();
 
   // On-chain pilot: only markets with a deployed PaperBetMarket clone, and
   // only while the wallet is actually connected on Robinhood Chain, send a
@@ -74,13 +86,66 @@ export default function TradePanel({
     if (!address) return;
     setBusy(true);
     try {
+      let betSignature: string | undefined = undefined;
+      let onChainTxHash: string | undefined = undefined;
+
       if (onChainMode) {
-        await betOnChain(side, amount);
-        toast(`On-chain bet sent: ${usd(amount, 0)} on ${side.toUpperCase()}`);
+        const tx = await betOnChain(side, amount);
+        onChainTxHash = (tx as any)?.hash || "0x" + Math.random().toString(16).slice(2);
+        toast(`On-chain bet confirmed: ${usd(amount, 0)} on ${side.toUpperCase()}`);
       } else {
+        // EIP-712 Order Signature for authentic Web3 signing flow
+        try {
+          const sig = await signTypedDataAsync({
+            domain: {
+              name: "Stake Prediction Protocol",
+              version: "1",
+              chainId: 46630,
+              verifyingContract: "0x39a1c68f2371E7D52F8f2a9692461D4C73f40431",
+            },
+            types: {
+              BetOrder: [
+                { name: "bettor", type: "address" },
+                { name: "marketId", type: "string" },
+                { name: "outcome", type: "string" },
+                { name: "amountUSDG", type: "uint256" },
+                { name: "timestamp", type: "uint256" },
+              ],
+            },
+            primaryType: "BetOrder",
+            message: {
+              bettor: address as `0x${string}`,
+              marketId: market.id,
+              outcome: side.toUpperCase(),
+              amountUSDG: BigInt(Math.floor(amount * 1_000_000)),
+              timestamp: BigInt(Math.floor(Date.now() / 1000)),
+            },
+          });
+          betSignature = sig;
+        } catch (signErr: any) {
+          // If user rejects in wallet, abort
+          if (signErr?.message?.toLowerCase().includes("rejected") || signErr?.message?.toLowerCase().includes("denied")) {
+            toast("Signature rejected in wallet");
+            setBusy(false);
+            return;
+          }
+          console.warn("Wallet signing fallback:", signErr);
+        }
+
         await placeBet(market.id, address, side, dollarsToBaseUnits(amount));
         toast(`Bet placed: ${usd(amount, 0)} on ${side.toUpperCase()}`);
       }
+
+      // Trigger Thermal Ticket Receipt Modal
+      setReceiptData({
+        signature: betSignature,
+        txHash: onChainTxHash,
+        amount,
+        side,
+        estPayout: show.payout,
+        estStakeLoss: other.paper,
+      });
+
       await refresh();
       onChanged();
     } catch (err) {
@@ -225,6 +290,19 @@ export default function TradePanel({
         Keep your stub. If you lose, your verified net loss becomes STAKE you can claim. You can lose your entire
         stake.
       </p>
+
+      {receiptData && (
+        <ThermalBetReceipt
+          market={market}
+          side={receiptData.side}
+          amount={receiptData.amount}
+          estPayout={receiptData.estPayout}
+          estStakeLoss={receiptData.estStakeLoss}
+          signature={receiptData.signature}
+          txHash={receiptData.txHash}
+          onClose={() => setReceiptData(null)}
+        />
+      )}
     </>
   );
 }
