@@ -18,13 +18,13 @@ import { toBaseUnits } from "./units";
  */
 const LAUNCH_CATEGORIES: PolymarketCategory[] = ["CRYPTO", "FINANCE", "GEOPOLITICS", "TECH"];
 
-const MAX_ACTIVE_PER_CATEGORY = 5;
+const MAX_ACTIVE_PER_CATEGORY = 20;
 const ACTIVE_STATUSES = ["draft", "open", "locked", "resolution_pending"];
 
 // Polymarket markets can have end dates years out — skip anything that far
 // so the board stays made of questions people can actually wait out,
 // without blocking a category's cap on stale long-horizon noise.
-const MAX_HORIZON_DAYS = 90;
+const MAX_HORIZON_DAYS = 365;
 
 // UMA-based resolution on Polymarket's side can take time after a
 // market's stated end date (disputes, etc.) — give resolveMarket() a
@@ -72,7 +72,7 @@ export async function ensureAutoMarkets(): Promise<string[]> {
         const activeCount = await countActiveForCategory(category);
         let createdForThisCategory = 0;
         if (activeCount < MAX_ACTIVE_PER_CATEGORY) {
-          const polymarketMarkets = await fetchPolymarketMarkets(category, 20);
+          const polymarketMarkets = await fetchPolymarketMarkets(category, 50);
 
           for (const pm of polymarketMarkets) {
             if (createdForThisCategory + activeCount >= MAX_ACTIVE_PER_CATEGORY) break;
