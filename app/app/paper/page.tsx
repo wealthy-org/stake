@@ -229,7 +229,7 @@ function OnChainVaultSection() {
 
       {!isOnChain && (
         <p className="note" style={{ marginTop: -6, marginBottom: 20 }}>
-          Connect a wallet on Robinhood Chain Testnet to see your net-loss points and claim your STAKE allocation.
+          Connect a wallet on Robinhood Chain to see your net-loss points and claim your STAKE allocation.
         </p>
       )}
 
@@ -394,7 +394,7 @@ export default function PaperPage() {
             </p>
             <EmissionCurve cumulativeLoss={cumulativeLoss} rate={paper.currentEmissionRatePerDollar} />
             <p className="note">
-              Illustrative curve shape. Real tiers (testnet-only, not approved mainnet tokenomics — brief §16):
+              Illustrative curve shape. Real tiers (tokenomics specification — brief §16):
               100 STAKE/$ up to $100K, 40/$ to $1M, 10/$ to $10M, 3/$ beyond.
             </p>
           </div>

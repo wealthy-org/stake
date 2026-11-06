@@ -199,7 +199,7 @@ export default function TradePanel({
             }
           }}
         >
-          {faucetBusy ? "Minting…" : "Get on-chain test funds (1,000 mUSDG)"}
+          {faucetBusy ? "Minting…" : "Claim funds (1,000 mUSDG)"}
         </button>
       )}
 
@@ -207,7 +207,7 @@ export default function TradePanel({
         <p className="note">Connect a wallet (top right) to bet.</p>
       ) : balance < amount ? (
         <button className="btn big block gold" disabled={busy} onClick={handleFaucet}>
-          Get test funds (virtual balance: {usd(balance, 0)})
+          Top up collateral (balance: {usd(balance, 0)})
         </button>
       ) : (
         <button className={"btn big block " + side} disabled={busy || amount < minBet || amount > maxBet} onClick={handleBet}>

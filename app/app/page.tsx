@@ -233,7 +233,7 @@ export default function Dashboard() {
         <div className="dash-connect" style={{ marginBottom: 28 }}>
           <div>
             <b>No wallet connected</b>
-            <p>Connect to view your virtual testnet balance, live claims, and active prediction slips.</p>
+            <p>Connect to view your balance, live claims, and active prediction slips.</p>
           </div>
           <div className="dash-connect-act">
             <button className="btn gold" onClick={() => connectInjected()}>

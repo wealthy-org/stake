@@ -573,7 +573,7 @@ export default function LandingPage() {
                           <span>Fee</span><i /><b>2% losing pool</b>
                         </div>
                         <div className="barcode" />
-                        <div className="t-foot">Live Testnet Protocol · Robinhood Chain</div>
+                        <div className="t-foot">Live Protocol · Robinhood Chain</div>
                       </div>
                     </div>
                   </div>
@@ -601,7 +601,7 @@ export default function LandingPage() {
           >
             <div className="kicker">
               <b>01 / Markets</b>
-              <span>Live prediction pools · Robinhood Chain testnet · {markets.length} total</span>
+              <span>Live prediction pools · Robinhood Chain · {markets.length} total</span>
             </div>
             <div className="head">
               <h1 className="title" tabIndex={-1}>
@@ -731,7 +731,7 @@ export default function LandingPage() {
             )}
 
             <p className="footnote rise" style={{ "--d": "460ms", marginTop: 24 } as any}>
-              Real liquidity on Robinhood Chain Testnet. Payouts depend on pool sizes at cutoff.
+              Real liquidity on Robinhood Chain. Payouts depend on pool sizes at cutoff.
               &ldquo;Pays&rdquo; is the proportional return per $1 staked, including returned stake, after 2% protocol fee on the losing pool.
             </p>
 
@@ -1353,7 +1353,7 @@ export default function LandingPage() {
               <details>
                 <summary>Live Robinhood Chain deployment<span className="pm" aria-hidden="true">+</span></summary>
                 <p>
-                  Running on Robinhood Chain Testnet (Chain ID 46630). Connect your Web3 wallet to participate in live prediction markets with deterministic oracles.
+                  Running on Robinhood Chain. Connect your Web3 wallet to participate in live prediction markets with deterministic oracles.
                 </p>
               </details>
             </div>

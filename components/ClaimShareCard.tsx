@@ -123,7 +123,7 @@ async function draw(canvas: HTMLCanvasElement, amount: number, batchId: number |
   ctx.font = "500 15px 'IBM Plex Mono'";
   ctx.fillStyle = COLORS.ink2;
   const dateStr = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  ctx.fillText(`Claimed on ${dateStr} · Robinhood Chain Testnet`, 70, 548);
+  ctx.fillText(`Claimed on ${dateStr} · Robinhood Chain`, 70, 548);
 }
 
 export default function ClaimShareCard({

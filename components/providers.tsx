@@ -10,7 +10,7 @@ import type { WalletSummary } from "@/lib/client/types";
 
 const ROBINHOOD_CHAIN_PARAMS = {
   chainId: "0xb626", // 46630 in hex
-  chainName: "Robinhood Chain Testnet",
+  chainName: "Robinhood Chain",
   nativeCurrency: {
     name: "Ether",
     symbol: "ETH",
@@ -144,7 +144,7 @@ function WalletInnerProvider({ children }: { children: React.ReactNode }) {
       // 2. Attempt chain switch / add
       try {
         await switchChainAsync({ chainId: robinhoodTestnet.id });
-        showToast("Connected to Robinhood Chain Testnet");
+        showToast("Connected to Robinhood Chain");
       } catch (switchErr: any) {
         console.warn("Chain switch note:", switchErr);
         if (
@@ -157,7 +157,7 @@ function WalletInnerProvider({ children }: { children: React.ReactNode }) {
               method: "wallet_addEthereumChain",
               params: [ROBINHOOD_CHAIN_PARAMS],
             });
-            showToast("Added and connected to Robinhood Chain Testnet");
+            showToast("Added and connected to Robinhood Chain");
           } catch {
             showToast("Connected! Switch wallet to Robinhood Chain (46630)");
           }
@@ -207,7 +207,7 @@ function WalletInnerProvider({ children }: { children: React.ReactNode }) {
   async function switchToRobinhood() {
     try {
       await switchChainAsync({ chainId: robinhoodTestnet.id });
-      showToast("Switched to Robinhood Chain Testnet");
+      showToast("Switched to Robinhood Chain");
     } catch (err: any) {
       if (
         err?.code === 4902 ||
@@ -219,7 +219,7 @@ function WalletInnerProvider({ children }: { children: React.ReactNode }) {
             method: "wallet_addEthereumChain",
             params: [ROBINHOOD_CHAIN_PARAMS],
           });
-          showToast("Added and switched to Robinhood Chain Testnet");
+          showToast("Added and switched to Robinhood Chain");
           return;
         } catch (addErr: any) {
           showToast(addErr?.message || "Failed to add chain");

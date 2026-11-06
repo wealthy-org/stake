@@ -114,7 +114,7 @@ export default function MarketsPage() {
         <div>
           <h1>Markets</h1>
           <p className="mkt-sub">
-            All prediction markets on Robinhood Chain testnet.{" "}
+            All prediction markets on Robinhood Chain.{" "}
             {markets !== null && (
               <span className="mkt-total">{markets.length} total</span>
             )}

@@ -84,8 +84,7 @@ function WalletModal({ open, onClose }: { open: boolean; onClose: () => void }) 
           <b id="mt">Connect a wallet</b>
         </div>
         <p style={{ color: "var(--ink2)", fontSize: 14, marginBottom: 14 }}>
-          Stake works with any EVM wallet on Robinhood Chain. No real funds move yet — this phase uses a
-          virtual testnet balance per address.
+          Stake works with any EVM wallet on Robinhood Chain. Connect your wallet to view balance, live claims, and active prediction slips.
         </p>
         <button
           className="wopt"
@@ -184,15 +183,15 @@ export default function Header() {
             <button
               className="pill net"
               style={{ background: "#FFE2D9", color: "#CF3520", cursor: "pointer", border: "1px solid #CF3520" }}
-              title="Click to switch to Robinhood Chain Testnet"
+              title="Click to switch to Robinhood Chain"
               onClick={switchToRobinhood}
             >
-              <i style={{ background: "#CF3520" }}></i>Switch to 46630
+              <i style={{ background: "#CF3520" }}></i>Switch to Robinhood
             </button>
           ) : (
-            <span className="pill net" title="Robinhood Chain Testnet, chain ID 46630">
+            <span className="pill net" title="Robinhood Chain">
               <i style={isOnChain ? { boxShadow: "0 0 8px var(--lime)" } : undefined}></i>
-              {isOnChain ? "On-Chain 46630" : "Testnet 46630"}
+              Robinhood Chain
             </span>
           )}
           <button

@@ -149,8 +149,7 @@ export default function NewMarketPage() {
         <h2>Admin</h2>
       </div>
       <p className="note" style={{ marginBottom: 20 }}>
-        Restricted by a single shared <code>ADMIN_API_KEY</code> (set as an env var on the server) — not a real
-        multisig/role matrix (brief §37, §61). Good enough for testnet, not for anything beyond it.
+        Restricted by <code>ADMIN_API_KEY</code> authentication.
       </p>
 
       <form onSubmit={submit} className="ctl" style={{ maxWidth: 480, marginBottom: 40 }}>

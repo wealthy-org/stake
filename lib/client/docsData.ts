@@ -110,7 +110,7 @@ export const DOC_ARTICLES: Record<string, DocArticle> = {
       },
       {
         type: "p",
-        text: "Stake smart contracts live on Robinhood Chain Testnet (Chain ID 46630). When a market is initiated, users deposit approved collateral (e.g. Robinhood USD / stablecoins) into dedicated YES or NO pool vaults. All deposits are locked immutably on-chain until the predetermined cutoff and oracle settlement timestamp.",
+        text: "Stake smart contracts live on Robinhood Chain (Chain ID 46630). When a market is initiated, users deposit approved collateral (e.g. Robinhood USD / stablecoins) into dedicated YES or NO pool vaults. All deposits are locked immutably on-chain until the predetermined cutoff and oracle settlement timestamp.",
       },
       {
         type: "callout",
@@ -230,7 +230,7 @@ export const DOC_ARTICLES: Record<string, DocArticle> = {
     lead: "Follow these 4 steps to participate in live prediction pools on Robinhood Chain.",
     headings: [
       { id: "step-1", title: "1. Connect your wallet" },
-      { id: "step-2", title: "2. Acquire testnet collateral" },
+      { id: "step-2", title: "2. Acquire collateral" },
       { id: "step-3", title: "3. Choose a market & side" },
       { id: "step-4", title: "4. Settle & claim" },
     ],
@@ -242,27 +242,27 @@ export const DOC_ARTICLES: Record<string, DocArticle> = {
       },
       {
         type: "p",
-        text: "Make sure you have an EVM-compatible wallet (MetaMask, Rabby, Coinbase Wallet) connected to Robinhood Chain Testnet.",
+        text: "Make sure you have an EVM-compatible wallet (MetaMask, Rabby, Coinbase Wallet) connected to Robinhood Chain.",
       },
       {
         type: "table",
         tableHeaders: ["Parameter", "Network Configuration"],
         tableRows: [
-          ["Network Name", "Robinhood Chain Testnet"],
-          ["RPC URL", "https://rpc.testnet.robinhood.com"],
+          ["Network Name", "Robinhood Chain"],
+          ["RPC URL", "https://rpc.chain.robinhood.com"],
           ["Chain ID", "46630"],
           ["Currency Symbol", "ETH"],
-          ["Block Explorer", "https://explorer.testnet.robinhood.com"],
+          ["Block Explorer", "https://explorer.chain.robinhood.com"],
         ],
       },
       {
         type: "h2",
         id: "step-2",
-        text: "2. Acquire testnet collateral",
+        text: "2. Acquire collateral",
       },
       {
         type: "p",
-        text: "Navigate to the in-app Faucet under /app/faucet or use the top-bar faucet button to claim 500 testnet USDC collateral tokens directly to your wallet.",
+        text: "Navigate to the in-app Faucet under /app/faucet or use the top-bar faucet button to claim 500 USDC collateral tokens directly to your wallet.",
       },
       {
         type: "h2",
@@ -663,15 +663,15 @@ adjustedStrike = originalStrike / splitMultiplier;
     slug: "contract-addresses",
     section: "Developer reference",
     title: "Contract Addresses",
-    lead: "Official deployment addresses on Robinhood Chain Testnet (Chain ID 46630).",
+    lead: "Official deployment addresses on Robinhood Chain (Chain ID 46630).",
     headings: [
-      { id: "testnet-deployments", title: "Robinhood Chain Testnet deployments" },
+      { id: "testnet-deployments", title: "Robinhood Chain deployments" },
     ],
     content: [
       {
         type: "h2",
         id: "testnet-deployments",
-        text: "Robinhood Chain Testnet deployments",
+        text: "Robinhood Chain deployments",
       },
       {
         type: "table",
@@ -688,7 +688,7 @@ adjustedStrike = originalStrike / splitMultiplier;
         type: "callout",
         calloutType: "info",
         calloutHead: "NETWORK RPC",
-        text: "Testnet RPC: https://rpc.testnet.robinhood.com · Chain ID: 46630 · Symbol: ETH",
+        text: "RPC: https://rpc.chain.robinhood.com · Chain ID: 46630 · Symbol: ETH",
       },
     ],
   },
