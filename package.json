@@ -10,7 +10,8 @@
     "selftest": "tsx scripts/selftest.ts",
     "stress": "tsx scripts/stress.ts",
     "faucet": "tsx scripts/faucet.ts",
-    "demo": "node scripts/demo-deploy.js"
+    "demo": "node scripts/demo-deploy.js",
+    "mainnet": "node scripts/mainnet-cli-showcase.cjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.4",
