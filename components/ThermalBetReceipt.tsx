@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { usd } from "@/lib/client/format";
 import type { MarketRow } from "@/lib/client/types";
 
 interface ThermalBetReceiptProps {
@@ -28,15 +27,23 @@ export default function ThermalBetReceipt({
 }: ThermalBetReceiptProps) {
   const [mounted, setMounted] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const now = new Date();
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
   const dateStr = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+  const shortSig = signature
+    ? `${signature.slice(0, 10)}...${signature.slice(-8)}`
+    : txHash
+    ? `${txHash.slice(0, 10)}...${txHash.slice(-8)}`
+    : "0x7a8f...92e1";
 
-  const shareText = `Just placed a $${amount} bet on "${side.toUpperCase()}" for "${market.question}" on @stakemarket_ (Robinhood Chain)!\n\nOutcome locked. Win USDG or mint $STAKE on loss. 🎟️⚡`;
+  const shareText = `Just placed a $${amount} bet on "${side.toUpperCase()}" for "${market.question}" on @stakemarket_ (Robinhood Chain).\n\nOutcome locked. Win USDG or mint $STAKE on loss.`;
 
   function copyShare() {
     navigator.clipboard.writeText(shareText);
@@ -44,7 +51,145 @@ export default function ThermalBetReceipt({
     setTimeout(() => setCopied(false), 2000);
   }
 
-  const shortSig = signature ? `${signature.slice(0, 10)}...${signature.slice(-8)}` : txHash ? `${txHash.slice(0, 10)}...${txHash.slice(-8)}` : "0x7a8f...92e1";
+  function downloadPNG() {
+    setDownloading(true);
+    const canvas = document.createElement("canvas");
+    const W = 640;
+    const H = 820;
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Background paper
+    ctx.fillStyle = "#FAFAF6";
+    ctx.fillRect(0, 0, W, H);
+
+    // Dark border outline
+    ctx.strokeStyle = "#0E0E10";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(16, 16, W - 32, H - 32);
+
+    // Header
+    ctx.font = "800 28px monospace";
+    ctx.fillStyle = "#0E0E10";
+    ctx.fillText("STAKE PROTOCOL", 44, 70);
+
+    ctx.font = "600 13px monospace";
+    ctx.fillStyle = "#666666";
+    ctx.fillText("ROBINHOOD CHAIN · ON-CHAIN BET SLIP", 44, 94);
+
+    // Side Badge
+    const badgeW = 90;
+    const badgeH = 38;
+    const badgeX = W - 44 - badgeW;
+    const badgeY = 56;
+    ctx.fillStyle = side === "yes" ? "#D1FAE5" : "#FEE2E2";
+    ctx.fillRect(badgeX, badgeY, badgeW, badgeH);
+    ctx.font = "800 20px monospace";
+    ctx.fillStyle = side === "yes" ? "#065F46" : "#991B1B";
+    ctx.textAlign = "center";
+    ctx.fillText(side.toUpperCase(), badgeX + badgeW / 2, badgeY + 26);
+    ctx.textAlign = "left";
+
+    // Dashed divider
+    ctx.setLineDash([8, 6]);
+    ctx.strokeStyle = "#C8C8C0";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(44, 120);
+    ctx.lineTo(W - 44, 120);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Market question label
+    ctx.font = "700 13px monospace";
+    ctx.fillStyle = "#888888";
+    ctx.fillText("MARKET / QUESTION", 44, 155);
+
+    // Multi-line question wrapping
+    ctx.font = "700 22px monospace";
+    ctx.fillStyle = "#111111";
+    const words = market.question.split(" ");
+    let line = "";
+    let qY = 190;
+    const maxQW = W - 88;
+    for (const w of words) {
+      const test = line + w + " ";
+      if (ctx.measureText(test).width > maxQW) {
+        ctx.fillText(line, 44, qY);
+        line = w + " ";
+        qY += 30;
+      } else {
+        line = test;
+      }
+    }
+    ctx.fillText(line, 44, qY);
+
+    // Divider line
+    qY += 25;
+    ctx.strokeStyle = "#E5E5DF";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(44, qY);
+    ctx.lineTo(W - 44, qY);
+    ctx.stroke();
+
+    // Data rows
+    const drawRow = (label: string, val: string, color = "#111", y: number, isBold = false) => {
+      ctx.font = "500 16px monospace";
+      ctx.fillStyle = "#666666";
+      ctx.fillText(label, 44, y);
+
+      ctx.font = `${isBold ? "800" : "600"} 16px monospace`;
+      ctx.fillStyle = color;
+      ctx.textAlign = "right";
+      ctx.fillText(val, W - 44, y);
+      ctx.textAlign = "left";
+    };
+
+    let rY = qY + 40;
+    drawRow("STAKE AMOUNT", `$${amount.toFixed(2)} USDG`, "#111", rY);
+    rY += 36;
+    drawRow("EST. PAYOUT IF WIN", `$${estPayout.toFixed(2)}`, "#059669", rY, true);
+    rY += 36;
+    drawRow("REBATE IF LOSS", `+${estStakeLoss.toLocaleString()} $STAKE`, "#D97706", rY, true);
+    rY += 36;
+    drawRow("SIGNATURE HASH", shortSig, "#444", rY);
+    rY += 36;
+    drawRow("TIMESTAMP", `${dateStr} ${timeStr}`, "#444", rY);
+
+    // Divider line
+    rY += 26;
+    ctx.beginPath();
+    ctx.moveTo(44, rY);
+    ctx.lineTo(W - 44, rY);
+    ctx.stroke();
+
+    // Barcode stripes
+    const barY = rY + 30;
+    const barH = 50;
+    ctx.fillStyle = "#111111";
+    let bx = 60;
+    while (bx < W - 60) {
+      const bw = ((bx * 7) % 5) + 2;
+      ctx.fillRect(bx, barY, bw, barH);
+      bx += bw + ((bx * 13) % 4) + 2;
+    }
+
+    // Barcode subtext
+    ctx.font = "600 13px monospace";
+    ctx.fillStyle = "#666666";
+    ctx.textAlign = "center";
+    ctx.fillText(`${market.id.replace("mkt_", "").toUpperCase()} · EIP712 VERIFIED ON ROBINHOOD CHAIN`, W / 2, barY + barH + 24);
+
+    // Download trigger
+    const link = document.createElement("a");
+    link.download = `stake-ticket-${market.id.slice(-6)}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+    setDownloading(false);
+  }
 
   if (!mounted) return null;
 
@@ -57,12 +202,12 @@ export default function ThermalBetReceipt({
       style={{
         position: "fixed",
         inset: 0,
-        backgroundColor: "rgba(0, 0, 0, 0.75)",
-        backdropFilter: "blur(4px)",
+        backgroundColor: "rgba(0, 0, 0, 0.8)",
+        backdropFilter: "blur(6px)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        zIndex: 9999,
+        zIndex: 99999,
         padding: 16,
       }}
     >
@@ -70,18 +215,18 @@ export default function ThermalBetReceipt({
         className="receipt-slip-container"
         style={{
           width: "100%",
-          maxWidth: 420,
+          maxWidth: 440,
           background: "#FAFAF6",
           color: "#0E0E10",
           fontFamily: "'IBM Plex Mono', monospace",
-          borderRadius: 4,
-          padding: "24px 28px 28px",
-          boxShadow: "0 20px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,0,0,0.1)",
+          borderRadius: 6,
+          padding: "26px 30px 30px",
+          boxShadow: "0 25px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.15)",
           position: "relative",
           animation: "receiptSlideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
         }}
       >
-        {/* Top jagged tear edge simulation */}
+        {/* Top header */}
         <div
           style={{
             display: "flex",
@@ -159,7 +304,7 @@ export default function ThermalBetReceipt({
         <div style={{ textAlign: "center", marginBottom: 20 }}>
           <div
             style={{
-              height: 38,
+              height: 40,
               background: "repeating-linear-gradient(90deg, #111 0, #111 2px, transparent 2px, transparent 5px, #111 5px, #111 8px, transparent 8px, transparent 10px, #111 10px, #111 14px)",
               opacity: 0.85,
               borderRadius: 2,
@@ -171,28 +316,51 @@ export default function ThermalBetReceipt({
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div style={{ display: "flex", gap: 10 }}>
-          <button
-            onClick={copyShare}
-            style={{
-              flex: 1,
-              padding: "11px 0",
-              background: "#0E0E10",
-              color: "#FFF",
-              border: "none",
-              borderRadius: 4,
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            {copied ? "Copied Share Text!" : "Share to X (Twitter)"}
-          </button>
+        {/* Action Buttons: Download PNG, Share to X, Done */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={downloadPNG}
+              disabled={downloading}
+              style={{
+                flex: 1,
+                padding: "11px 0",
+                background: "#0E0E10",
+                color: "#FFF",
+                border: "none",
+                borderRadius: 4,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+              }}
+            >
+              {downloading ? "Exporting..." : "Download Ticket PNG"}
+            </button>
+            <button
+              onClick={copyShare}
+              style={{
+                flex: 1,
+                padding: "11px 0",
+                background: "#0E0E10",
+                color: "#FFF",
+                border: "none",
+                borderRadius: 4,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              {copied ? "Copied" : "Share to X"}
+            </button>
+          </div>
           <button
             onClick={onClose}
             style={{
-              padding: "11px 20px",
+              padding: "10px 0",
               background: "#E5E5DF",
               color: "#333",
               border: "none",
@@ -210,4 +378,3 @@ export default function ThermalBetReceipt({
     document.body
   );
 }
-
