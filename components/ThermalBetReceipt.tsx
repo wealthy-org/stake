@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { usd } from "@/lib/client/format";
 import type { MarketRow } from "@/lib/client/types";
 
@@ -25,8 +26,13 @@ export default function ThermalBetReceipt({
   txHash,
   onClose,
 }: ThermalBetReceiptProps) {
+  const [mounted, setMounted] = useState(false);
   const [copied, setCopied] = useState(false);
   const now = new Date();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const dateStr = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 
@@ -40,7 +46,9 @@ export default function ThermalBetReceipt({
 
   const shortSig = signature ? `${signature.slice(0, 10)}...${signature.slice(-8)}` : txHash ? `${txHash.slice(0, 10)}...${txHash.slice(-8)}` : "0x7a8f...92e1";
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <div
       className="modal open"
       role="dialog"
@@ -198,6 +206,8 @@ export default function ThermalBetReceipt({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
+
