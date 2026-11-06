@@ -21,7 +21,7 @@ export function friendlyWeb3Error(err: unknown): string {
     return "Token approval didn't go through — please try again.";
   }
   if (/chain mismatch|does not match the target chain|unsupported chain/i.test(raw)) {
-    return "Your wallet is connected to the wrong network — switch to Robinhood Chain Testnet and try again.";
+    return "Your wallet is connected to the wrong network — switch to Robinhood Chain Mainnet and try again.";
   }
 
   // Pull the human-readable revert reason out of viem's dump, e.g.

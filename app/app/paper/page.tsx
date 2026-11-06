@@ -270,7 +270,7 @@ function OnChainVaultSection() {
                     </span>
                   </span>
                   <a
-                    href={`https://explorer.testnet.chain.robinhood.com/tx/${c.txHash}`}
+                    href={`https://explorer.mainnet.chain.robinhood.com/tx/${c.txHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ fontSize: 12, fontFamily: "var(--type)" }}
